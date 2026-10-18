@@ -39,6 +39,13 @@
 //! external state is involved. Identical inputs always produce identical
 //! outputs, which makes unit-testing straightforward.
 
+/// Confidence must strictly exceed this for a waste type to be recommended.
+const MIN_CONFIDENCE: f64 = 0.3;
+/// Weight of the observed match ratio in a confidence score.
+const CONFIDENCE_SCALE: f64 = 0.8;
+/// Floor added to every non-zero-history confidence score, so a match is never ignored entirely.
+const CONFIDENCE_FLOOR: f64 = 0.2;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -68,7 +75,7 @@ impl RecommendationEngine {
 
         for waste_type in waste_types {
             let confidence = Self::calculate_confidence(&request.waste_history, waste_type);
-            if confidence > 0.3 {
+            if confidence > MIN_CONFIDENCE {
                 recommendations.push(WasteRecommendation {
                     waste_type: waste_type.to_string(),
                     confidence_score: confidence,
@@ -85,7 +92,7 @@ impl RecommendationEngine {
     fn calculate_confidence(history: &[String], waste_type: &str) -> f64 {
         let count = history.iter().filter(|w| w.contains(waste_type)).count();
         let base_confidence = (count as f64) / (history.len().max(1) as f64);
-        (base_confidence * 0.8 + 0.2).min(1.0)
+        (base_confidence * CONFIDENCE_SCALE + CONFIDENCE_FLOOR).min(1.0)
     }
 }
 
