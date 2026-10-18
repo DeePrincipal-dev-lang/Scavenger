@@ -139,6 +139,8 @@ pub struct NotificationResult {
 /// Common contract implemented by every delivery channel submodule
 /// (email, sms, push, webhook). The delivery service is generic over this
 /// trait so it never needs to know which concrete transport a channel uses.
+/// The delivery-channel interface. Email, webhook and in-app delivery implement it.
+pub use self::NotificationChannel as DeliveryChannel;
 #[async_trait]
 pub trait NotificationChannel: Send + Sync {
     fn channel(&self) -> Channel;
