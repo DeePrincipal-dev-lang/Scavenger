@@ -1,3 +1,6 @@
+//! Redis cache backend. Connection setup and commands come from `crate::redis`; this file keeps only
+//! cache-specific logic. Duplicate connection code here should be removed in favour of `crate::redis`.
+
 //! Redis cache backend implementation.
 //!
 //! Provides Redis-based caching with connection pooling, automatic
