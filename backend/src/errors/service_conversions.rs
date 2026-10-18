@@ -43,7 +43,6 @@
 ///     Ok(HttpResponse::Ok().json(report))
 /// }
 /// ```
-pub use crate::api::errors::{ApiError, ErrorBody, ErrorDetail};
 
 use crate::services::{
     email::EmailError,
