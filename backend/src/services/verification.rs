@@ -1,3 +1,6 @@
+//! Verification business logic: validation and state transitions. The HTTP handlers in
+//! `api/verification.rs` call into this module.
+
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
