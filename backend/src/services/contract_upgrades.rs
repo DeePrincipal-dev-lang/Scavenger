@@ -1,3 +1,6 @@
+//! Upgrade planning, execution and verification live in this file, in that order. Splitting it into
+//! `plan.rs`, `execute.rs` and `verify.rs` is a follow-up; each phase is tested separately.
+
 use chrono::{DateTime, Utc};
 /// #805 - Automated Contract Upgrade Service
 /// Upgrade automation, validation, migration, rollback, and testing for Soroban contracts.
