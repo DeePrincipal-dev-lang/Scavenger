@@ -6,6 +6,9 @@ mod test_transfer_path_validation;
 mod types;
 mod validation;
 
+#[cfg(test)]
+mod validation_properties;
+
 pub use errors::Error;
 pub use types::{
     Challenge, ChallengeProgress, ChallengeStatus, CertificationLevel, GlobalMetrics, GradeRecord, Auction, Incentive,
