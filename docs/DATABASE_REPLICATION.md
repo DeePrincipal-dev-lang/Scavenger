@@ -3,6 +3,37 @@
 ## Overview
 This document describes the database replication setup for high availability and read scaling.
 
+## Kubernetes Setup
+
+### Manifests
+
+| File | Purpose |
+|------|---------|
+| `k8s/postgres-replication.yml` | StatefulSet for primary + 2 replicas, Services, PodDisruptionBudget |
+| `k8s/backup-cronjob.yml` | Daily backup CronJob + weekly restore verification CronJob |
+
+### Deploy
+
+```bash
+# Create secrets (replace placeholder values)
+kubectl create secret generic postgres-secrets \
+  --from-literal=POSTGRES_PASSWORD=<strong-password> \
+  --from-literal=REPLICATION_PASSWORD=<strong-replication-password> \
+  -n scavenger
+
+# Apply replication manifests
+kubectl apply -f k8s/postgres-replication.yml
+
+# Apply backup CronJobs
+kubectl apply -f k8s/backup-cronjob.yml
+```
+
+### Architecture (K8s)
+- `postgres-primary` StatefulSet (1 replica) — accepts writes; WAL archiving enabled
+- `postgres-replica` StatefulSet (2 replicas) — hot-standby; initialized via `pg_basebackup`
+- Each pod includes a sidecar `postgres-exporter` that exposes metrics on port 9187
+- A `PodDisruptionBudget` ensures at least 1 replica remains available during node drains
+
 ## Architecture
 
 ### Master-Slave Replication

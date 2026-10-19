@@ -112,7 +112,7 @@ impl StorageService for S3StorageService {
             content_type: request.content_type,
             size,
             created_at: chrono::Utc::now().to_rfc3339(),
-            url,
+            url: format!("https://{}.s3.{}.amazonaws.com/{}", self.bucket, self.region, file_id),
         })
     }
 
@@ -148,13 +148,6 @@ impl StorageService for S3StorageService {
             return Err(StorageError::InvalidFile("Empty file_id".to_string()));
         }
         if request.expiration_seconds == 0 {
-            log::warn!(
-                service = "storage",
-                op = "get_signed_url",
-                outcome = "error",
-                file_id = %request.file_id;
-                "get_signed_url rejected: zero expiration"
-            );
             return Err(StorageError::InvalidFile("Invalid expiration".to_string()));
         }
 
@@ -197,10 +190,7 @@ impl StorageService for S3StorageService {
             content_type: "application/pdf".to_string(),
             size: 1024,
             created_at: chrono::Utc::now().to_rfc3339(),
-            url: format!(
-                "https://{}.s3.{}.amazonaws.com/{}",
-                self.bucket, self.region, file_id
-            ),
+            url: format!("https://{}.s3.{}.amazonaws.com/{}", self.bucket, self.region, file_id),
         })
     }
 }

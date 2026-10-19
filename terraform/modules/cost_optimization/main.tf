@@ -180,3 +180,68 @@ resource "aws_cloudwatch_event_target" "rds_start" {
     InstanceId = [var.rds_instance_id]
   })
 }
+
+# ── Cost anomaly detection ────────────────────────────────────────────────────
+
+resource "aws_ce_anomaly_monitor" "scavenger" {
+  name              = "scavenger-anomaly-monitor"
+  monitor_type      = "DIMENSIONAL"
+  monitor_dimension = "SERVICE"
+}
+
+resource "aws_ce_anomaly_subscription" "scavenger" {
+  name      = "scavenger-anomaly-alerts"
+  frequency = "DAILY"
+
+  monitor_arn_list = [aws_ce_anomaly_monitor.scavenger.arn]
+
+  subscriber {
+    type    = "EMAIL"
+    address = var.budget_alert_emails[0]
+  }
+
+  threshold_expression {
+    dimension {
+      key           = "ANOMALY_TOTAL_IMPACT_PERCENTAGE"
+      values        = ["10"]
+      match_options = ["GREATER_THAN_OR_EQUAL"]
+    }
+  }
+}
+
+# ── Cost monitoring dashboard ─────────────────────────────────────────────────
+
+resource "aws_cloudwatch_dashboard" "cost" {
+  dashboard_name = "scavenger-cost-${var.environment}"
+
+  dashboard_body = jsonencode({
+    widgets = [
+      {
+        type   = "metric"
+        width  = 12
+        height = 6
+        properties = {
+          title  = "ECS CPU Utilization"
+          period = 300
+          stat   = "Average"
+          metrics = [
+            ["AWS/ECS", "CPUUtilization", "ClusterName", var.ecs_cluster_name]
+          ]
+        }
+      },
+      {
+        type   = "metric"
+        width  = 12
+        height = 6
+        properties = {
+          title  = "ECS Memory Utilization"
+          period = 300
+          stat   = "Average"
+          metrics = [
+            ["AWS/ECS", "MemoryUtilization", "ClusterName", var.ecs_cluster_name]
+          ]
+        }
+      }
+    ]
+  })
+}

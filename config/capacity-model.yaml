@@ -1,0 +1,118 @@
+# Capacity Planning Model
+# Defines capacity thresholds, forecasting parameters, and scaling rules
+
+model_version: "1.0"
+environment: prod
+
+capacity_limits:
+  compute:
+    ecs:
+      cpu:
+        min_percent: 10
+        max_percent: 90
+        target_percent: 60
+        burst_threshold: 80
+        scale_out_cooldown: 60
+        scale_in_cooldown: 300
+      memory:
+        min_percent: 20
+        max_percent: 85
+        target_percent: 70
+        burst_threshold: 75
+        scale_out_cooldown: 60
+        scale_in_cooldown: 300
+    fargate:
+      cpu_units_per_task: 1024
+      memory_mb_per_task: 2048
+      max_tasks: 50
+      spot_percentage: 70
+  storage:
+    rds:
+      max_connections: 500
+      max_storage_gb: 1000
+      storage_threshold_percent: 80
+      ioPS_threshold: 10000
+    redis:
+      max_memory_mb: 5120
+      memory_threshold_percent: 75
+      max_connections: 1000
+    s3:
+      max_storage_gb: 5000
+      request_threshold_per_second: 10000
+  network:
+    alb:
+      max_connections: 50000
+      max_bandwidth_mbps: 1000
+      request_threshold_per_second: 10000
+    cloudfront:
+      max_bandwidth_gbps: 10
+      request_threshold_per_second: 100000
+
+forecasting:
+  model: "linear_regression"
+  lookback_days: 90
+  forecast_horizon_days: 30
+  seasonality:
+    daily: true
+    weekly: true
+    monthly: true
+  growth_rate:
+    min: 0.01
+    max: 0.50
+    default: 0.10
+  anomaly_detection:
+    enabled: true
+    sensitivity: 2.0
+    window_minutes: 60
+
+auto_scaling:
+  policies:
+    - name: cpu_based
+      type: target_tracking
+      metric: CPUUtilization
+      target_value: 60
+      scale_in_cooldown: 300
+      scale_out_cooldown: 60
+    - name: memory_based
+      type: target_tracking
+      metric: MemoryUtilization
+      target_value: 70
+      scale_in_cooldown: 300
+      scale_out_cooldown: 60
+    - name: request_based
+      type: step_scaling
+      metric: RequestCountPerTarget
+      threshold: 5000
+      scale_out_adjustment: 2
+      scale_in_adjustment: -1
+    - name: scheduled
+      type: scheduled
+      schedules:
+        - name: business_hours
+          cron: "0 8 * * 1-5"
+          min_capacity: 5
+          max_capacity: 20
+        - name: off_hours
+          cron: "0 20 * * 1-5"
+          min_capacity: 2
+          max_capacity: 5
+        - name: weekend
+          cron: "0 0 * * 0,6"
+          min_capacity: 2
+          max_capacity: 3
+
+capacity_alerts:
+  warning:
+    cpu_percent: 70
+    memory_percent: 75
+    storage_percent: 70
+    connection_percent: 70
+  critical:
+    cpu_percent: 85
+    memory_percent: 90
+    storage_percent: 85
+    connection_percent: 85
+  notification_channels:
+    - slack
+    - email
+    - pagerduty

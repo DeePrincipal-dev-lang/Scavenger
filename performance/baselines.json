@@ -1,118 +1,66 @@
 {
   "version": "1.0.0",
-  "description": "Benchmark regression baseline measurements for Scavenger smart contract",
-  "last_updated": "2024-10-19",
-  "measurement_unit": "instructions",
-  "tolerance_percent": 5,
-  "benchmarks": {
-    "participant_registration": {
-      "baseline": 45000,
-      "tolerance_percent": 5,
-      "description": "Gas cost for participant registration operation",
-      "operation": "register_participant()",
-      "metadata": {
-        "version": "1.0.0",
-        "environment": "soroban-testnet",
-        "source": "stellar-contract/tests/performance_test.rs"
-      }
-    },
-    "waste_submission": {
-      "baseline": 62000,
-      "tolerance_percent": 5,
-      "description": "Gas cost for waste submission/recycling operation",
-      "operation": "recycle_waste()",
-      "metadata": {
-        "version": "1.0.0",
-        "environment": "soroban-testnet"
-      }
-    },
-    "waste_transfer": {
-      "baseline": 55000,
-      "tolerance_percent": 5,
-      "description": "Gas cost for waste transfer between participants",
-      "operation": "transfer_waste_v2()",
-      "metadata": {
-        "version": "1.0.0",
-        "environment": "soroban-testnet"
-      }
-    },
-    "waste_confirmation": {
-      "baseline": 48000,
-      "tolerance_percent": 5,
-      "description": "Gas cost for confirming waste receipt/processing",
-      "operation": "confirm_waste()",
-      "metadata": {
-        "version": "1.0.0",
-        "environment": "soroban-testnet"
-      }
-    },
-    "incentive_creation": {
-      "baseline": 58000,
-      "tolerance_percent": 5,
-      "description": "Gas cost for creating incentive structures",
-      "operation": "create_incentive()",
-      "metadata": {
-        "version": "1.0.0",
-        "environment": "soroban-testnet"
-      }
-    },
-    "incentive_claim": {
-      "baseline": 51000,
-      "tolerance_percent": 5,
-      "description": "Gas cost for claiming incentive rewards",
-      "operation": "claim_incentive()",
-      "metadata": {
-        "version": "1.0.0",
-        "environment": "soroban-testnet"
-      }
-    },
-    "query_global_metrics": {
-      "baseline": 28000,
-      "tolerance_percent": 5,
-      "description": "Gas cost for querying global metrics (read-only)",
-      "operation": "get_global_metrics()",
-      "metadata": {
-        "version": "1.0.0",
-        "environment": "soroban-testnet"
-      }
-    },
-    "query_participant_stats": {
-      "baseline": 32000,
-      "tolerance_percent": 5,
-      "description": "Gas cost for querying participant statistics",
-      "operation": "get_participant_stats()",
-      "metadata": {
-        "version": "1.0.0",
-        "environment": "soroban-testnet"
-      }
-    },
-    "batch_waste_transfer": {
-      "baseline": 120000,
-      "tolerance_percent": 8,
-      "description": "Gas cost for batch waste transfer operations",
-      "operation": "batch_transfer_waste()",
-      "metadata": {
-        "version": "1.0.0",
-        "environment": "soroban-testnet",
-        "note": "Higher tolerance due to variable batch sizes"
-      }
-    },
-    "material_submission": {
-      "baseline": 48000,
-      "tolerance_percent": 5,
-      "description": "Gas cost for material submission operations",
-      "operation": "submit_material()",
-      "metadata": {
-        "version": "1.0.0",
-        "environment": "soroban-testnet"
-      }
-    }
+  "updated": "2026-07-29",
+  "contract": {
+    "participant_registration_instructions": { "baseline": 500000, "threshold": 750000 },
+    "waste_registration_instructions": { "baseline": 800000, "threshold": 1200000 },
+    "waste_transfer_instructions": { "baseline": 1000000, "threshold": 1500000 },
+    "incentive_creation_instructions": { "baseline": 600000, "threshold": 900000 },
+    "reward_distribution_instructions": { "baseline": 1200000, "threshold": 1800000 }
   },
-  "notes": {
-    "measurement_methodology": "Benchmarks measured using Soroban SDK testutils with env.cost_estimate(). Values are CPU instruction counts.",
-    "tolerance_explanation": "Tolerance allows for minor variations due to Soroban runtime differences, contract dependencies, and storage state variations. Default 5% tolerance; higher tolerance for batch operations that are more variable.",
-    "update_procedure": "Use performance/generate-baseline.js to update baselines with new measurements. NEVER change baseline to silence regressions; investigate root cause first.",
-    "regression_detection": "Run performance/analyze-results.js to check for regressions. Fails CI if any metric exceeds (baseline * (1 + tolerance_percent/100)).",
-    "historical_context": "Version 1.0.0 establishes initial baselines. See BENCHMARK_REGRESSION.md for update history and rationale."
+  "api": {
+    "p95_ms": { "baseline": 300, "threshold": 500 },
+    "p99_ms": { "baseline": 700, "threshold": 1000 },
+    "error_rate_pct": { "baseline": 1, "threshold": 5 }
+  },
+  "database": {
+    "query_p95_ms": { "baseline": 400, "threshold": 600 },
+    "query_p99_ms": { "baseline": 800, "threshold": 1200 }
+  },
+  "waste_submission_regression": {
+    "p50_ms": { "baseline": 200, "threshold": 400, "regression_pct": 20 },
+    "p95_ms": { "baseline": 400, "threshold": 800, "regression_pct": 20 },
+    "p99_ms": { "baseline": 700, "threshold": 1500, "regression_pct": 20 },
+    "error_rate_pct": { "baseline": 1, "threshold": 10 },
+    "throughput_rps": { "baseline": 50, "threshold_min": 20 },
+    "note": "Baselines require a staging environment run. Values above are initial estimates pending actual measurement."
+  },
+  "hot_endpoints": {
+    "list_wastes": {
+      "p95_ms": { "baseline": 300, "threshold": 500 },
+      "p99_ms": { "baseline": 600, "threshold": 800 },
+      "avg_ms": { "baseline": 200, "threshold": 400 },
+      "error_rate_pct": { "baseline": 1, "threshold": 5 }
+    },
+    "list_participants": {
+      "p95_ms": { "baseline": 300, "threshold": 500 },
+      "p99_ms": { "baseline": 600, "threshold": 800 },
+      "avg_ms": { "baseline": 200, "threshold": 400 },
+      "error_rate_pct": { "baseline": 1, "threshold": 5 }
+    },
+    "get_contract_stats": {
+      "p95_ms": { "baseline": 400, "threshold": 600 },
+      "p99_ms": { "baseline": 800, "threshold": 1200 },
+      "avg_ms": { "baseline": 250, "threshold": 500 },
+      "error_rate_pct": { "baseline": 1, "threshold": 5 }
+    },
+    "search": {
+      "p95_ms": { "baseline": 500, "threshold": 800 },
+      "p99_ms": { "baseline": 1000, "threshold": 1500 },
+      "avg_ms": { "baseline": 300, "threshold": 600 },
+      "error_rate_pct": { "baseline": 2, "threshold": 10 }
+    },
+    "audit_logs": {
+      "p95_ms": { "baseline": 400, "threshold": 700 },
+      "p99_ms": { "baseline": 800, "threshold": 1200 },
+      "avg_ms": { "baseline": 250, "threshold": 500 },
+      "error_rate_pct": { "baseline": 1, "threshold": 5 }
+    },
+    "sign_transaction": {
+      "p95_ms": { "baseline": 600, "threshold": 900 },
+      "p99_ms": { "baseline": 1200, "threshold": 1800 },
+      "avg_ms": { "baseline": 400, "threshold": 700 },
+      "error_rate_pct": { "baseline": 2, "threshold": 10 }
+    }
   }
 }

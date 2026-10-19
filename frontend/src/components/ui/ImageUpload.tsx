@@ -70,7 +70,7 @@ export function ImageUpload({ images, onAdd, onRemove, validationError, disabled
             <div key={img.id} className="group relative aspect-square overflow-hidden rounded-md border bg-muted">
               <img
                 src={img.cid ? ipfsGatewayUrl(img.cid) : img.preview}
-                alt="Preview"
+                alt={`Preview of ${img.file.name}`}
                 className="h-full w-full object-cover"
               />
 

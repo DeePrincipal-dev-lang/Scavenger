@@ -1,197 +1,114 @@
-# Performance Testing Configuration
+# Performance Testing Infrastructure
 
-## Consolidated k6 Load Testing Suite
+This directory contains the performance testing suite for Scavenger.
 
-The performance directory contains a consolidated load testing framework with 5 optimized profiles.
+## Framework
+We use [k6](https://k6.io/) for load, stress, and endurance testing.
 
-### Quick Start
+## Directory Structure
+- `scenarios/`: k6 test scripts for different testing types (load, stress, endurance).
+- `lib/`: Shared functions and configurations.
+- `baselines/`: Performance baseline data for regression detection.
+- `reports/`: Generated test results and summary reports.
+- `HOT_ENDPOINTS_LOAD_TESTING.md`: Comprehensive guide for hot endpoints load testing (issue #950).
+- `hot-endpoints-thresholds.json`: Performance thresholds for identified hot endpoints.
+- `k6-hot-endpoints-load-test.js`: Load test script for hot endpoints (3 scenarios).
+- `run-hot-endpoints-tests.sh`: Runner script for hot endpoints load tests.
+
+## Test Types
+1. **Load Test** (`load.js`): Tests the system under expected normal load.
+2. **Stress Test** (`stress.js`): Tests the system's limits by gradually increasing load until it breaks or reaches a high threshold.
+3. **Endurance Test** (`endurance.js`): Tests system stability over an extended period.
+4. **Hot Endpoints Load Test** (`k6-hot-endpoints-load-test.js`): Comprehensive load testing for high-traffic endpoints (issue #950).
+5. **Waste Submission Regression** (`scenarios/waste-submission-regression.js`): Regression test for the core waste-submission flow with p50/p95/p99 latency thresholds and 20% regression policy (issue #1134).
+
+## Running Tests
+
+Requires a running environment (see the
+[Developer Onboarding Guide](../docs/DEVELOPER_ONBOARDING.md#development-environment-setup))
+plus [k6](https://k6.io) installed locally.
+
+### General Test Suite
+```bash
+./performance/run-perf-tests.sh
+```
+
+### Hot Endpoints Load Tests
+```bash
+# Run all hot endpoints load tests
+./performance/run-hot-endpoints-tests.sh
+
+# Run with custom base URL
+BASE_URL=http://api.example.com ./performance/run-hot-endpoints-tests.sh
+
+# Generate baselines
+GENERATE_BASELINE=true ./performance/run-hot-endpoints-tests.sh
+```
+
+### Specific Test
+```bash
+k6 run performance/scenarios/load.js
+k6 run performance/k6-hot-endpoints-load-test.js
+k6 run performance/scenarios/waste-submission-regression.js
+```
+
+### Waste Submission Regression Test
+
+The regression test (`scenarios/waste-submission-regression.js`) exercises the core waste-submission flow:
+participant registration -> waste submission -> waste verification -> incentive query.
 
 ```bash
-# Run default smoke test
-./scripts/run-perf-tests.sh
+# Run against default (localhost:3000/api)
+k6 run performance/scenarios/waste-submission-regression.js
 
-# Run specific profile
-./scripts/run-perf-tests.sh --profile load
-
-# Run all profiles
-./scripts/run-perf-tests.sh --all
+# Run against a specific environment
+k6 run -e BASE_URL=https://staging-api.example.com/api performance/scenarios/waste-submission-regression.js
 ```
 
-### Setup
+**Regression Thresholds:**
+| Metric | Threshold | Regression Policy |
+|--------|-----------|-------------------|
+| p50 latency | < 400ms | Must not regress >20% from baseline |
+| p95 latency | < 800ms | Must not regress >20% from baseline |
+| p99 latency | < 1500ms | Must not regress >20% from baseline |
+| Error rate | < 10% | Must not exceed threshold |
 
-```bash
-# Install k6
-brew install k6  # macOS
-sudo apt-get install k6  # Linux
-choco install k6  # Windows
+Baselines are stored in `baselines.json` under `waste_submission_regression`. To update baselines intentionally, run the test in a representative staging environment and update the values with reviewer approval. See [PERFORMANCE_BASELINE.md](../docs/PERFORMANCE_BASELINE.md) for details.
 
-# Make scripts executable
-chmod +x scripts/run-perf-tests.sh
-chmod +x scripts/run_fuzz_tests.sh
-```
+## Hot Endpoints Load Testing (Issue #950)
 
-### Load Testing Profiles
+As of v1.0, the hot endpoints load testing suite includes comprehensive tests for high-traffic endpoints:
 
-| Profile | Duration | Users | Purpose | File |
-|---------|----------|-------|---------|------|
-| **Smoke** | 50 sec | 1 | Quick sanity check | `k6-smoke.js` |
-| **Load** | 6 min | 100 | Baseline performance | `k6-load.js` |
-| **Stress** | 15 min | 1k-10k | Breaking point | `k6-stress.js` |
-| **Spike** | 6 min | 100→1k | Traffic burst | `k6-spike.js` |
-| **Soak** | 40 min | 500 | Degradation detection | `k6-soak.js` |
+**Hot Endpoints Tested:**
+- `GET /api/v1/contracts/wastes` - List wastes
+- `GET /api/v1/contracts/participants` - List participants
+- `GET /api/v1/contracts/stats` - Contract statistics
+- `GET /api/v1/search` - Full-text search
+- `GET /api/v1/audit/logs` - Audit logs
+- `POST /api/v1/signing/sign` - Transaction signing
 
-### Running Tests
+**Test Scenarios:**
+1. Steady State: 100 concurrent users (9 minutes)
+2. Spike Test: Sudden increase to 1000 users (5 minutes)
+3. Stress Test: Gradual increase to 10000 users (13 minutes)
 
-#### Command Line
+**Performance Thresholds:**
+- Steady State: p95 < 500ms, error rate < 5%
+- Spike: p95 < 1000ms, error rate < 10%
+- Stress: p95 < 2000ms, error rate < 20%
 
-```bash
-# Smoke test (default)
-k6 run performance/k6-smoke.js
+See [HOT_ENDPOINTS_LOAD_TESTING.md](./HOT_ENDPOINTS_LOAD_TESTING.md) for complete details.
 
-# Load test
-BASE_URL=http://localhost:8000/api k6 run performance/k6-load.js
+## Baselines and Alerts
+The suite includes a baseline comparison tool.
+- To generate a new baseline: `GENERATE_BASELINE=true ./performance/run-perf-tests.sh`
+- The `analyze-results.js` script automatically compares current results with the baseline and reports regressions.
+- Hot endpoints baselines are defined in `baselines.json` under the `hot_endpoints` section.
+- Waste submission regression baselines are defined in `baselines.json` under `waste_submission_regression`.
+- **Regression policy**: p95 latency must not regress by more than 20% from baseline. Updates to baselines require reviewer attention and must be backed by actual staging measurements.
 
-# Stress test
-BASE_URL=http://localhost:8000/api k6 run performance/k6-stress.js
-
-# With output
-k6 run --out json=results.json performance/k6-load.js
-```
-
-#### Master Script
-
-```bash
-# Run specific profile
-./scripts/run-perf-tests.sh --profile load
-
-# Run with custom configuration
-./scripts/run-perf-tests.sh --profile load \
-  --base-url https://api.example.com \
-  --output ./reports \
-  --json
-
-# Run all profiles sequentially
-./scripts/run-perf-tests.sh --all
-```
-
-### Performance Targets
-
-| Profile | P95 Response | P99 Response | Error Rate | Status |
-|---------|-------------|-------------|-----------|--------|
-| Smoke   | < 500 ms    | < 1000 ms   | < 1%      | ✓      |
-| Load    | < 1000 ms   | < 2000 ms   | < 5%      | ✓      |
-| Stress  | < 2000 ms   | < 5000 ms   | < 10%     | ✓      |
-| Spike   | < 2000 ms   | < 5000 ms   | < 15%     | ✓      |
-| Soak    | < 500 ms    | < 1000 ms   | < 5%      | ✓      |
-
-### Metrics Tracked
-
-Shared custom metrics via `k6-common.js`:
-
-- `error_rate` - Overall error rate
-- `http_errors` - HTTP error count
-- `api_duration_ms` - API response time
-- `contract_call_duration_ms` - Smart contract execution time
-- `participant_op_duration_ms` - Participant operations
-- `waste_op_duration_ms` - Waste operations
-- `query_op_duration_ms` - Query operations
-- `success_count` - Successful operations
-- `failure_count` - Failed operations
-- `active_connections` - Currently active connections
-
-### File Organization
-
-```
-performance/
-├── k6-common.js              # Shared utilities and configuration
-├── k6-smoke.js               # Smoke test profile
-├── k6-load.js                # Load test profile
-├── k6-stress.js              # Stress test profile
-├── k6-spike.js               # Spike test profile
-├── k6-soak.js                # Soak test profile
-├── LOAD_TESTING_GUIDE.md     # Comprehensive guide
-├── performance-benchmarks.md # Baseline metrics
-└── README.md                 # This file
-```
-
-### Deprecated Scripts
-
-The following overlapping scripts are deprecated:
-- ~~`k6-load-test-comprehensive.js`~~
-- ~~`k6-load-test.js`~~
-- ~~`k6-concurrent-users.js`~~
-- ~~`k6-api-response-times.js`~~
-- ~~`k6-database-queries.js`~~
-- ~~`k6-waste-submission.js`~~
-- ~~`k6-contract-gas-usage.js`~~
-- ~~`load-test-scenarios.js`~~
-
-Use the consolidated scripts instead.
-
-### CI/CD Integration
-
-Performance tests run on every push:
-
-```yaml
-# Example GitHub Actions workflow
-- name: Run Performance Tests
-  run: |
-    ./scripts/run-perf-tests.sh --profile smoke
-    ./scripts/run-perf-tests.sh --profile load
-```
-
-### Environment Variables
-
-```bash
-# API Configuration
-BASE_URL=http://localhost:8000/api
-CONTRACT_ID=CAAAA...
-
-# Test Options
-TIMEOUT=30000  # milliseconds
-```
-
-### Example Commands
-
-```bash
-# Local development - quick check
-./scripts/run-perf-tests.sh
-
-# CI/CD - baseline performance
-BASE_URL=http://staging.example.com ./scripts/run-perf-tests.sh --profile load
-
-# Release validation - full suite
-./scripts/run-perf-tests.sh --all --output ./reports --json
-
-# Overnight soak test
-BASE_URL=http://production.example.com \
-  ./scripts/run-perf-tests.sh --profile soak --output ./overnight-results
-```
-
-### Performance Budgets
-
-System must maintain:
-- API Response Time (p95): < 500ms under normal load
-- Contract Call Duration (p95): < 1000ms
-- Error Rate: < 5% under normal load
-- Throughput: > 100 requests/second
-
-### Thresholds Configuration
-
-Each profile defines thresholds in `k6-common.js`:
-
-```javascript
-export const thresholds = {
-  smoke: {
-    'http_req_duration': ['p(95)<500', 'p(99)<1000'],
-    'http_req_failed': ['rate<0.01'],
-  },
-  load: {
-    'http_req_duration': ['p(95)<1000', 'p(99)<2000'],
-    'http_req_failed': ['rate<0.05'],
-  },
-  // ... more profiles
-};
-```
-
-Thresholds are exit criteria: test fails if any threshold is exceeded.
+## Metrics Tracked
+- `http_req_duration`: End-to-end request time (p95, avg).
+- `errors`: Rate of non-200/409 responses.
+- `api_duration`: Custom trend for API specific timing.
+- Endpoint-specific trends: `list_wastes_duration`, `search_duration`, `audit_logs_duration`, etc.

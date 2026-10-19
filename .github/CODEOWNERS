@@ -1,0 +1,52 @@
+# Module ownership map — see CONTRIBUTING.md "Module Ownership Map" for details.
+# Later rules take precedence over earlier ones.
+
+# Global owners
+* @Xoulomon
+
+# Smart contract
+/stellar-contract/ @Xoulomon
+/contracts/ @Xoulomon
+
+# Frontend
+/frontend/ @Xoulomon
+
+# Backend services
+/backend/ @Xoulomon
+
+# Indexer
+/indexer/ @Xoulomon
+
+# Mobile app
+/mobile/ @Xoulomon
+
+# Shared packages (SDK)
+/packages/ @Xoulomon
+
+# Website
+/website/ @Xoulomon
+
+# Operational scripts
+/scripts/ @Xoulomon
+
+# Infrastructure
+/k8s/ @Xoulomon
+/terraform/ @Xoulomon
+/config/ @Xoulomon
+/docker-compose*.yml @Xoulomon
+
+# Test suites
+/integration-tests/ @Xoulomon
+/performance/ @Xoulomon
+/security-tests/ @Xoulomon
+
+# Demo
+/demo/ @Xoulomon
+
+# CI/CD
+/.github/ @Xoulomon
+
+# Docs
+/docs/ @Xoulomon
+CONTRIBUTING.md @Xoulomon
+SECURITY.md @Xoulomon

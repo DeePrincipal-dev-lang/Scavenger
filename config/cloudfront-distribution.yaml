@@ -1,36 +1,31 @@
-version: 1
-distributions:
-  - id: scavenger-cdn
-    enabled: true
-    origins:
-      - domainName: scavenger-app.s3.amazonaws.com
-        id: s3-origin
-        s3OriginConfig:
-          originAccessIdentity: origin-access-identity/cloudfront/ABCDEFG1234567
-    defaultCacheBehavior:
-      allowedMethods:
+DistributionConfigWithTags:
+  DistributionConfig:
+    CallerReference: scavenger-cdn-2026-05-29
+    Comment: "Scavenger CloudFront distribution for static assets and API traffic"
+    Enabled: true
+    DefaultRootObject: index.html
+    Origins:
+      - DomainName: scavenger-app.s3.amazonaws.com
+        Id: s3-origin
+        S3OriginConfig:
+          OriginAccessIdentity: origin-access-identity/cloudfront/ABCDEFG1234567
+    DefaultCacheBehavior:
+      TargetOriginId: s3-origin
+      ViewerProtocolPolicy: redirect-to-https
+      AllowedMethods:
         - GET
         - HEAD
         - OPTIONS
-      cachedMethods:
+      CachedMethods:
         - GET
         - HEAD
-      compress: true
-      defaultTtl: 86400
-      maxTtl: 31536000
-      minTtl: 0
-      targetOriginId: s3-origin
-      viewerProtocolPolicy: redirect-to-https
-      forwardedValues:
-        queryString: false
-        cookies:
-          forward: none
-        headers:
-          - Accept
-          - Accept-Encoding
-    cacheBehaviors:
-      - pathPattern: /api/*
-        allowedMethods:
+      Compress: true
+      CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+    CacheBehaviors:
+      - PathPattern: /api/*
+        TargetOriginId: s3-origin
+        ViewerProtocolPolicy: https-only
+        AllowedMethods:
           - GET
           - HEAD
           - OPTIONS
@@ -38,53 +33,45 @@ distributions:
           - POST
           - PATCH
           - DELETE
-        cachedMethods:
+        CachedMethods:
           - GET
           - HEAD
-        compress: true
-        defaultTtl: 0
-        maxTtl: 0
-        minTtl: 0
-        targetOriginId: s3-origin
-        viewerProtocolPolicy: https-only
-        forwardedValues:
-          queryString: true
-          cookies:
-            forward: all
-      - pathPattern: /static/*
-        allowedMethods:
+        Compress: true
+        CachePolicyId: 413fd8e3-8d15-4e09-bdff-1f6059fbe0d5
+        OriginRequestPolicyId: 88a5eaf4-2fd4-4709-b370-b4c650ea3fcf
+      - PathPattern: /static/*
+        TargetOriginId: s3-origin
+        ViewerProtocolPolicy: https-only
+        AllowedMethods:
           - GET
           - HEAD
-        cachedMethods:
+        CachedMethods:
           - GET
           - HEAD
-        compress: true
-        defaultTtl: 31536000
-        maxTtl: 31536000
-        minTtl: 31536000
-        targetOriginId: s3-origin
-        viewerProtocolPolicy: https-only
-        forwardedValues:
-          queryString: false
-          cookies:
-            forward: none
-    enabled: true
-    httpVersion: http2and3
-    isIpv6Enabled: true
-    priceClass: PriceClass_100
-    viewerCertificate:
-      acmCertificateArn: arn:aws:acm:us-east-1:123456789012:certificate/12345678-1234-1234-1234-123456789012
-      minimumProtocolVersion: TLSv1.2_2021
-      sslSupportMethod: sni-only
-    aliases:
+        Compress: true
+        CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+    CustomErrorResponses:
+      - ErrorCode: 404
+        ResponseCode: 200
+        ResponsePagePath: /index.html
+        ErrorCachingMinTTL: 300
+      - ErrorCode: 403
+        ResponseCode: 200
+        ResponsePagePath: /index.html
+        ErrorCachingMinTTL: 300
+    HttpVersion: http2and3
+    IsIPV6Enabled: true
+    PriceClass: PriceClass_100
+    ViewerCertificate:
+      ACMCertificateArn: arn:aws:acm:us-east-1:123456789012:certificate/12345678-1234-1234-1234-123456789012
+      MinimumProtocolVersion: TLSv1.2_2021
+      SSLSupportMethod: sni-only
+    Aliases:
       - scavenger.example.com
       - www.scavenger.example.com
-    customErrorResponses:
-      - errorCode: 404
-        responseCode: 200
-        responsePagePath: /index.html
-        errorCachingMinTtl: 300
-      - errorCode: 403
-        responseCode: 200
-        responsePagePath: /index.html
-        errorCachingMinTtl: 300
+  Tags:
+    Items:
+      - Key: Name
+        Value: scavenger-cdn
+      - Key: Project
+        Value: scavenger

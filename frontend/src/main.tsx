@@ -1,7 +1,6 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { QueryClient, QueryClientProvider, MutationCache, QueryCache } from '@tanstack/react-query'
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { persistQueryClient } from '@tanstack/react-query-persist-client'
 import { Toaster, toast } from 'sonner'
 import { App } from '@/App'
@@ -9,19 +8,25 @@ import { AuthProvider } from '@/context/AuthContext'
 import { WalletProvider } from '@/context/WalletContext'
 import { ContractProvider } from '@/context/ContractContext'
 import { ThemeProvider, useTheme } from '@/context/ThemeProvider'
+import { StoreProvider } from '@/store'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { getErrorMessage } from '@/lib/contractErrors'
 import { initWebVitals } from '@/lib/webVitals'
-import { getDB, setQueryData, getQueryData, removeQueryData } from '@/lib/indexedDB'
+import { getDB, setQueryData } from '@/lib/indexedDB'
+import { queryCachePolicy } from '@/lib/queryCachePolicy'
+import '@/i18n/config'
 import './index.css'
+
+// Devtools are only needed in development; lazy-load them so the production
+// bundle never contains the devtools module.
+const ReactQueryDevtools = import.meta.env.DEV
+  ? React.lazy(() =>
+      import('@tanstack/react-query-devtools').then((m) => ({ default: m.ReactQueryDevtools }))
+    )
+  : null
 
 // Initialize Web Vitals monitoring
 initWebVitals((metric) => {
-  // Log to console in development
-  if (import.meta.env.DEV) {
-    console.debug(`[Web Vital] ${metric.name}: ${metric.value.toFixed(0)}ms (${metric.rating})`)
-  }
-  
   // Optionally send to analytics endpoint in production
   if (!import.meta.env.DEV) {
     try {
@@ -47,10 +52,7 @@ const queryClient = new QueryClient({
   }),
   defaultOptions: {
     queries: {
-      refetchOnWindowFocus: false,
-      retry: 1,
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      gcTime: 24 * 60 * 60 * 1000, // 24 hours
+      ...queryCachePolicy,
     }
   }
 })
@@ -60,7 +62,7 @@ persistQueryClient({
   queryClient,
   persister: {
     persistClient: async (client) => {
-      const db = await getDB()
+      const _db = await getDB()
       const queries = client.getQueryCache().getAll()
       
       for (const query of queries) {
@@ -74,11 +76,11 @@ persistQueryClient({
       }
     },
     restoreClient: async () => {
-      const db = await getDB()
-      const tx = db.transaction('queries', 'readonly')
+      const _db = await getDB()
+      const tx = _db.transaction('queries', 'readonly')
       const store = tx.objectStore('queries')
       
-      const queries: Record<string, any> = {}
+      const queries: Record<string, unknown> = {}
       
       for await (const cursor of store) {
         queries[cursor.key] = cursor.value
@@ -106,17 +108,23 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <ErrorBoundary>
-          <AuthProvider>
+          <StoreProvider>
             <WalletProvider>
-              <ContractProvider>
-                <App />
-                <ThemedToaster />
-              </ContractProvider>
+              <AuthProvider>
+                <ContractProvider>
+                  <App />
+                  <ThemedToaster />
+                </ContractProvider>
+              </AuthProvider>
             </WalletProvider>
-          </AuthProvider>
+          </StoreProvider>
         </ErrorBoundary>
       </ThemeProvider>
-      {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
+      {ReactQueryDevtools && (
+        <React.Suspense fallback={null}>
+          <ReactQueryDevtools initialIsOpen={false} />
+        </React.Suspense>
+      )}
     </QueryClientProvider>
   </React.StrictMode>
 )

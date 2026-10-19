@@ -12,36 +12,24 @@
     "search": "Buscar",
     "filter": "Filtrar",
     "export": "Exportar",
-    "download": "Descargar"
+    "submit": "Enviar",
+    "back": "Atrás",
+    "noData": "No hay datos disponibles"
   },
   "nav": {
-    "home": "Inicio",
     "dashboard": "Panel",
-    "analytics": "Análisis",
-    "incentives": "Incentivos",
-    "community": "Comunidad",
-    "settings": "Configuración"
-  },
-  "waste": {
-    "title": "Gestión de Residuos",
-    "register": "Registrar Residuo",
-    "transfer": "Transferir Residuo",
-    "details": "Detalles del Residuo",
-    "type": "Tipo de Residuo",
-    "quantity": "Cantidad",
-    "location": "Ubicación",
-    "status": "Estado"
+    "settings": "Configuración",
+    "profile": "Perfil"
   },
   "errors": {
     "network": "Error de red",
     "unauthorized": "Acceso no autorizado",
     "notFound": "Recurso no encontrado",
-    "validation": "Error de validación",
-    "unknown": "Ocurrió un error desconocido"
+    "unknown": "Ocurrió un error desconocido",
+    "walletNotFound": "Billetera no encontrada. Por favor instale Freighter."
   },
   "settings": {
     "language": "Idioma",
-    "theme": "Tema",
-    "notifications": "Notificaciones"
+    "theme": "Tema"
   }
 }

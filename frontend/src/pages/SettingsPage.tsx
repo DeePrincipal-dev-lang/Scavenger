@@ -4,9 +4,11 @@ import { useWallet } from '@/context/WalletContext'
 import { useContract } from '@/context/ContractContext'
 import { useAuth } from '@/context/AuthContext'
 import { useTheme } from '@/context/ThemeProvider'
+import { NotificationStore, type NotificationPreferences, type NotificationType } from '@/lib/notifications'
 import { NETWORK_CONFIGS } from '@/lib/stellar'
 import { Button } from '@/components/ui/Button'
 import { Switch } from '@/components/ui/Switch'
+import { LanguageSelector } from '@/components/ui/LanguageSelector'
 import { cn } from '@/lib/utils'
 import { useOnboarding } from '@/hooks/useOnboarding'
 
@@ -137,12 +139,21 @@ export function SettingsPage() {
           <div className="flex items-center gap-2">
             <Sun className="h-4 w-4 text-muted-foreground" />
             <Switch
-              checked={isReady && isDark}
+              checked={isReady && isDark && theme !== 'high-contrast'}
               onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')}
               aria-label="Toggle dark mode"
+              disabled={theme === 'high-contrast'}
             />
             <Moon className="h-4 w-4 text-muted-foreground" />
           </div>
+        </Row>
+
+        <Row label="High contrast mode" description="For improved accessibility">
+          <Switch
+            checked={theme === 'high-contrast'}
+            onCheckedChange={(checked) => setTheme(checked ? 'high-contrast' : isDark ? 'dark' : 'light')}
+            aria-label="Toggle high contrast mode"
+          />
         </Row>
 
         <Row label="System theme" description="Follow your OS preference">
@@ -151,10 +162,18 @@ export function SettingsPage() {
             size="sm"
             onClick={() => setTheme('system')}
             className="w-full sm:w-auto"
+            disabled={theme === 'high-contrast'}
           >
             <Monitor className="mr-1.5 h-3.5 w-3.5" />
             Use system
           </Button>
+        </Row>
+      </Section>
+
+      {/* Language */}
+      <Section title="Language">
+        <Row label="Display language" description="Choose your preferred language (Arabic enables RTL)">
+          <LanguageSelector />
         </Row>
       </Section>
 

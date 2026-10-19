@@ -8,10 +8,6 @@ export function usePerformanceMonitoring(debug = false): void {
   useEffect(() => {
     const cleanup = initWebVitals(
       (metric) => {
-        if (debug) {
-          console.log(`[Performance] ${metric.name}: ${metric.value.toFixed(0)}ms (${metric.rating})`)
-        }
-
         // Send to analytics if endpoint exists
         try {
           sendMetricsToAnalytics({ [metric.name.toLowerCase()]: metric })

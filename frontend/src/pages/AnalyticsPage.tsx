@@ -1,6 +1,6 @@
-import { BarChart3, TrendingUp, Package, Users, Download, Calendar } from 'lucide-react'
+import { BarChart3, TrendingUp, Package, Users, Download } from 'lucide-react'
+import { UserBehaviorDashboard } from '@/components/analytics/UserBehaviorDashboard'
 import { StatCard } from '@/components/ui/StatCard'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { useStats } from '@/hooks/useStats'
 import { useAppTitle } from '@/hooks/useAppTitle'
@@ -8,45 +8,62 @@ import { useAnalyticsExport } from '@/hooks/useAnalyticsExport'
 import { DateRangeSelector } from '@/components/analytics/DateRangeSelector'
 import { LeaderboardCard } from '@/components/analytics/LeaderboardCard'
 import { CarbonImpactCard } from '@/components/analytics/CarbonImpactCard'
-import { useState } from 'react'
+import { WasteTypeChart } from '@/components/analytics/WasteTypeChart'
+import { MonthlyTrendsChart } from '@/components/analytics/MonthlyTrendsChart'
+import { RecyclingRateChart } from '@/components/analytics/RecyclingRateChart'
+import { TopMaterialsChart } from '@/components/analytics/TopMaterialsChart'
+import { ParticipantContributionChart } from '@/components/analytics/ParticipantContributionChart'
+import { QuickStatsCard } from '@/components/analytics/QuickStatsCard'
+import { useState, useCallback } from 'react'
 
 export function AnalyticsPage() {
   useAppTitle('Analytics')
   const { totalWastes, isLoading } = useStats()
   const { exportToCSV, exportToPDF } = useAnalyticsExport()
-  const [dateRange, setDateRange] = useState({ start: null, end: null })
+  const [dateRange, setDateRange] = useState<{ start: Date | null; end: Date | null }>({
+    start: null,
+    end: null,
+  })
 
-  const chartData = [
-    { month: 'Jan', plastic: 45, metal: 30, glass: 25 },
-    { month: 'Feb', plastic: 52, metal: 35, glass: 28 },
-    { month: 'Mar', plastic: 61, metal: 42, glass: 33 },
-    { month: 'Apr', plastic: 58, metal: 38, glass: 31 },
-    { month: 'May', plastic: 67, metal: 45, glass: 36 },
-    { month: 'Jun', plastic: 73, metal: 51, glass: 42 }
-  ]
+  // Memoize callback handlers to prevent unnecessary re-renders of child components
+  const handleDateRangeChange = useCallback(
+    (newRange: { start: Date | null; end: Date | null }) => {
+      setDateRange(newRange)
+    },
+    []
+  )
+
+  const handleExportCSV = useCallback(() => {
+    exportToCSV()
+  }, [exportToCSV])
+
+  const handleExportPDF = useCallback(() => {
+    exportToPDF()
+  }, [exportToPDF])
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-start">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold">Analytics Dashboard</h1>
           <p className="mt-1 text-muted-foreground">
             Track waste management trends and performance metrics
           </p>
         </div>
-        <div className="flex gap-2">
-          <DateRangeSelector value={dateRange} onChange={setDateRange} />
-          <Button onClick={exportToCSV} variant="outline" size="sm">
+        <div className="flex flex-wrap gap-2">
+          <DateRangeSelector value={dateRange} onChange={handleDateRangeChange} />
+          <Button onClick={handleExportCSV} variant="outline" size="sm">
             <Download className="h-4 w-4 mr-2" />
             CSV
           </Button>
-          <Button onClick={exportToPDF} variant="outline" size="sm">
+          <Button onClick={handleExportPDF} variant="outline" size="sm">
             <Download className="h-4 w-4 mr-2" />
             PDF
           </Button>
         </div>
       </div>
 
+      {/* KPI Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatCard
           icon={<Package className="h-4 w-4" />}
@@ -86,109 +103,36 @@ export function AnalyticsPage() {
         />
       </div>
 
+      {/* Charts row 1 */}
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Waste Type Distribution</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {chartData[chartData.length - 1] && (
-                <>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span>Plastic</span>
-                      <span className="font-medium">
-                        {chartData[chartData.length - 1].plastic}%
-                      </span>
-                    </div>
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                      <div
-                        className="h-full bg-blue-500"
-                        style={{ width: `${chartData[chartData.length - 1].plastic}%` }}
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span>Metal</span>
-                      <span className="font-medium">{chartData[chartData.length - 1].metal}%</span>
-                    </div>
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                      <div
-                        className="h-full bg-green-500"
-                        style={{ width: `${chartData[chartData.length - 1].metal}%` }}
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span>Glass</span>
-                      <span className="font-medium">{chartData[chartData.length - 1].glass}%</span>
-                    </div>
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                      <div
-                        className="h-full bg-purple-500"
-                        style={{ width: `${chartData[chartData.length - 1].glass}%` }}
-                      />
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Monthly Trends</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {chartData.map((data) => (
-                <div key={data.month} className="flex items-center gap-3">
-                  <span className="w-12 text-sm text-muted-foreground">{data.month}</span>
-                  <div className="flex flex-1 gap-1">
-                    <div
-                      className="h-8 rounded bg-blue-500/80"
-                      style={{ width: `${data.plastic}%` }}
-                      title={`Plastic: ${data.plastic}%`}
-                    />
-                    <div
-                      className="h-8 rounded bg-green-500/80"
-                      style={{ width: `${data.metal}%` }}
-                      title={`Metal: ${data.metal}%`}
-                    />
-                    <div
-                      className="h-8 rounded bg-purple-500/80"
-                      style={{ width: `${data.glass}%` }}
-                      title={`Glass: ${data.glass}%`}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="mt-4 flex gap-4 text-xs">
-              <div className="flex items-center gap-1.5">
-                <div className="h-3 w-3 rounded bg-blue-500" />
-                <span>Plastic</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="h-3 w-3 rounded bg-green-500" />
-                <span>Metal</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="h-3 w-3 rounded bg-purple-500" />
-                <span>Glass</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <WasteTypeChart />
+        <MonthlyTrendsChart />
       </div>
 
+      {/* Charts row 2 */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <RecyclingRateChart />
+        </div>
+        <QuickStatsCard />
+      </div>
+
+      {/* Top materials + participant contributions */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <TopMaterialsChart />
+        <ParticipantContributionChart />
+      </div>
+
+      {/* Leaderboard + Carbon */}
       <div className="grid gap-6 lg:grid-cols-2">
         <LeaderboardCard />
         <CarbonImpactCard />
+      </div>
+
+      {/* User Behavior Analytics */}
+      <div>
+        <h2 className="mb-4 text-xl font-semibold">User Behavior Analytics</h2>
+        <UserBehaviorDashboard />
       </div>
     </div>
   )

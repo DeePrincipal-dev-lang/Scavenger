@@ -45,6 +45,7 @@ data:
   stellar_network: "testnet"
   log_level: "info"
   metrics_enabled: "true"
+  api_url: "https://api.scavenger.app"
 ---
 apiVersion: v1
 kind: Secret

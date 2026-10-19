@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import { Search, CheckCircle2, Clock, XCircle, Package } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { ScavengerClient } from '@/api/client'
@@ -8,13 +8,14 @@ import { networkConfig } from '@/lib/stellar'
 import { wasteTypeLabel, formatDate } from '@/lib/helpers'
 import { useTransferHistory } from '@/hooks/useTransferHistory'
 import { useAppTitle } from '@/hooks/useAppTitle'
-import { TransferTimeline } from '@/components/ui/TransferTimeline'
+import { WasteJourneyTimeline } from '@/components/ui/WasteJourneyTimeline'
 import { AddressDisplay } from '@/components/ui/AddressDisplay'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { cn } from '@/lib/utils'
+import { cacheKeys } from '@/lib/cacheKeys'
 
 // ── Status helpers ────────────────────────────────────────────────────────────
 
@@ -54,7 +55,7 @@ const STATUS_CONFIG: Record<
 function useWasteById(wasteId: bigint | null) {
   const { config } = useContract()
   return useQuery<Waste | null>({
-    queryKey: ['waste', wasteId?.toString()],
+    queryKey: cacheKeys.waste(wasteId?.toString()),
     queryFn: async () => {
       const client = new ScavengerClient({
         rpcUrl: config.rpcUrl,
@@ -110,6 +111,17 @@ export function SupplyChainTrackerPage() {
 
   const isSearching = wasteLoading || historyLoading
   const notFound = searchedId !== null && !wasteLoading && (wasteError || waste === null)
+
+  const participantAddresses = useMemo(() => {
+    const unique = new Set<string>()
+    if (waste?.current_owner) unique.add(waste.current_owner)
+    if (waste?.confirmer) unique.add(waste.confirmer)
+    history?.forEach((transfer) => {
+      unique.add(transfer.from)
+      unique.add(transfer.to)
+    })
+    return Array.from(unique)
+  }, [history, waste])
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 px-4 py-6 sm:space-y-8 sm:py-8">
@@ -211,14 +223,32 @@ export function SupplyChainTrackerPage() {
           {/* Transfer timeline */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">Transfer History</CardTitle>
+              <CardTitle className="text-base">Supply Chain Journey</CardTitle>
             </CardHeader>
             <CardContent>
-              <TransferTimeline
-                history={history}
-                currentOwner={waste.current_owner}
-                isLoading={historyLoading}
-              />
+              <WasteJourneyTimeline waste={waste} transfers={history ?? []} />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Participant Summary</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                This journey includes {participantAddresses.length} unique participant address
+                {participantAddresses.length === 1 ? '' : 'es'}.
+              </p>
+              <div className="grid gap-3 pt-4 sm:grid-cols-2">
+                {participantAddresses.map((address) => (
+                  <div key={address} className="rounded-lg border bg-card p-3">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                      Participant
+                    </p>
+                    <AddressDisplay address={address} showExplorer />
+                  </div>
+                ))}
+              </div>
             </CardContent>
           </Card>
         </div>

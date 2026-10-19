@@ -1,590 +1,920 @@
-# Troubleshooting Guide
+# Scavngr — Troubleshooting Guide
 
-## Overview
+> **Issue:** #536  
+> **Category:** Operations / Developer Support  
+> **Audience:** Developers, operators, and end users  
+> **Last Updated:** 2026-05-26
 
-This guide provides solutions for common issues encountered when using and developing the Scavenger platform.
+---
 
-## Common Errors and Solutions
+## Table of Contents
 
-### Error Code Reference
+1. [Quick Diagnostic Checklist](#quick-diagnostic-checklist)
+2. [Contract Errors & Fixes](#contract-errors--fixes)
+3. [Frontend Debugging Tips](#frontend-debugging-tips)
+4. [Backend Service Troubleshooting](#backend-service-troubleshooting)
+5. [Indexer Sync Troubleshooting](#indexer-sync-troubleshooting)
+6. [Performance Tuning Guide](#performance-tuning-guide)
+7. [Wallet & Transaction Issues](#wallet--transaction-issues)
+8. [Network & Connectivity Issues](#network--connectivity-issues)
+9. [FAQ](#faq)
+10. [Escalation & Support](#escalation--support)
 
-| Code | Message | Cause | Solution |
-|------|---------|-------|----------|
-| E001 | Participant not registered | User hasn't registered | Register participant first |
-| E002 | Invalid waste type | Unknown waste type | Use: plastic, metal, paper, glass |
-| E003 | Invalid coordinates | Lat/lon out of range | Lat: [-90, 90], Lon: [-180, 180] |
-| E004 | Insufficient balance | Not enough tokens | Earn tokens through verification |
-| E005 | Unauthorized action | Permission denied | Check participant role |
-| E006 | Contract error | Contract execution failed | Check network and contract state |
-| E007 | Invalid signature | Transaction signature invalid | Verify wallet connection |
-| E008 | Network error | Connection failed | Check internet and RPC endpoint |
+---
 
-## Wallet Connection Issues
+## Quick Diagnostic Checklist
 
-### Problem: Wallet Not Connecting
+Run this first before deeper investigation.
 
-**Symptoms:**
-- "Connect Wallet" button not responding
-- Wallet extension not detected
-- Connection timeout
-
-**Diagnosis:**
-```bash
-# Check if wallet extension is installed
-# Open browser console (F12)
-console.log(window.stellar)  # Should not be undefined
+```
+[ ] Internet connection working
+[ ] Wallet extension installed, enabled, and unlocked
+[ ] Correct network selected (TESTNET / MAINNET)
+[ ] Account has sufficient XLM balance (≥ 1 XLM for fees)
+[ ] Participant is registered (is_participant_registered → true)
+[ ] Contract ID is correct (56 chars, no trailing spaces)
+[ ] RPC endpoint reachable (curl https://soroban-testnet.stellar.org/)
+[ ] Backend service running (curl http://localhost:8080/health)
+[ ] Indexer service running (curl http://localhost:3001/health)
+[ ] Database accepting connections
+[ ] Redis responding (redis-cli ping → PONG)
+[ ] No CI/CD deployment currently in progress
 ```
 
-**Solutions:**
+---
 
-1. **Install Wallet Extension**
-   - Download [Stellar Expert Wallet](https://stellar.expert/wallet)
-   - Or [Freighter Wallet](https://www.freighter.app/)
-   - Restart browser after installation
+## Contract Errors & Fixes
 
-2. **Enable Extension**
-   - Go to browser extensions
-   - Ensure wallet extension is enabled
-   - Check permissions for scavenger.app
+This section maps each contract panic message to its root cause and resolution.
 
-3. **Clear Browser Cache**
-   ```bash
-   # Chrome: Ctrl+Shift+Delete
-   # Firefox: Ctrl+Shift+Delete
-   # Safari: Cmd+Shift+Delete
-   ```
+---
 
-4. **Check Network**
-   ```bash
-   # Verify RPC endpoint is accessible
-   curl https://soroban-testnet.stellar.org/
-   ```
+### `"Admin already initialized"`
 
-### Problem: Transaction Signing Failed
+**Cause:** `initialize_admin` was called on a contract that already has an admin set. This function is one-time only.
 
-**Symptoms:**
-- "Failed to sign transaction" error
-- Wallet popup doesn't appear
-- Transaction rejected
-
-**Solutions:**
-
-1. **Verify Wallet is Unlocked**
-   - Open wallet extension
-   - Enter password if needed
-   - Ensure account is selected
-
-2. **Check Transaction Details**
-   - Verify destination address is correct
-   - Check amount is reasonable
-   - Confirm fee is acceptable
-
-3. **Restart Wallet**
-   - Close wallet extension
-   - Refresh browser page
-   - Reopen wallet extension
-
-4. **Check Network**
-   ```bash
-   # Verify you're on correct network
-   # Should be TESTNET or MAINNET
-   ```
-
-## Transaction Failures
-
-### Problem: Transaction Rejected
-
-**Symptoms:**
-- "Transaction failed" error
-- Transaction appears in history but marked as failed
-- No error message provided
-
-**Diagnosis:**
+**Fix:**
 ```bash
-# Check transaction status
-curl "https://horizon-testnet.stellar.org/transactions/<TRANSACTION_ID>"
-
-# Look for error_code and error_details
-```
-
-**Solutions:**
-
-1. **Insufficient Balance**
-   - Check account balance: `stellar account info <ADDRESS>`
-   - Fund account: Use Friendbot for testnet
-   - Wait for transaction confirmation
-
-2. **Invalid Parameters**
-   - Verify waste type is valid
-   - Check coordinates are in range
-   - Ensure weight is positive
-
-3. **Contract Error**
-   - Check contract is deployed
-   - Verify contract ID is correct
-   - Check contract state
-
-4. **Network Congestion**
-   - Wait and retry
-   - Increase fee if needed
-   - Check Stellar network status
-
-### Problem: Transaction Timeout
-
-**Symptoms:**
-- Transaction pending for > 5 minutes
-- No confirmation received
-- "Timeout" error message
-
-**Solutions:**
-
-1. **Check Transaction Status**
-   ```bash
-   # Query Horizon
-   curl "https://horizon-testnet.stellar.org/transactions/<TRANSACTION_ID>"
-   
-   # If not found, transaction may have failed
-   ```
-
-2. **Resubmit Transaction**
-   - Wait 30 seconds
-   - Retry with same parameters
-   - Use new transaction if needed
-
-3. **Check Network**
-   ```bash
-   # Verify network is operational
-   curl https://horizon-testnet.stellar.org/
-   
-   # Check Stellar status page
-   # https://status.stellar.org/
-   ```
-
-4. **Increase Fee**
-   - Retry with higher fee
-   - Standard fee: 100 stroops
-   - High fee: 1000 stroops
-
-## Network Issues
-
-### Problem: Cannot Connect to Network
-
-**Symptoms:**
-- "Network error" or "Connection refused"
-- RPC endpoint unreachable
-- Timeout errors
-
-**Diagnosis:**
-```bash
-# Test RPC endpoint
-curl -v https://soroban-testnet.stellar.org/
-
-# Check DNS resolution
-nslookup soroban-testnet.stellar.org
-
-# Test network connectivity
-ping 8.8.8.8
-```
-
-**Solutions:**
-
-1. **Check Internet Connection**
-   ```bash
-   # Verify connectivity
-   ping google.com
-   
-   # If fails, restart router/modem
-   ```
-
-2. **Verify RPC Endpoint**
-   - Check endpoint URL is correct
-   - Verify endpoint is operational
-   - Try alternative endpoint
-
-3. **Check Firewall**
-   ```bash
-   # Verify port 443 is open
-   telnet soroban-testnet.stellar.org 443
-   ```
-
-4. **Use VPN if Blocked**
-   - Some networks block Stellar endpoints
-   - Use VPN to bypass restrictions
-   - Contact network administrator
-
-### Problem: Slow Network Performance
-
-**Symptoms:**
-- Requests taking > 10 seconds
-- High latency
-- Frequent timeouts
-
-**Solutions:**
-
-1. **Check Network Speed**
-   ```bash
-   # Test download speed
-   speedtest-cli
-   
-   # Minimum: 1 Mbps
-   # Recommended: 10 Mbps
-   ```
-
-2. **Reduce Load**
-   - Close other applications
-   - Stop large downloads
-   - Disable VPN if using
-
-3. **Use Faster Endpoint**
-   - Try different RPC endpoint
-   - Use regional endpoint closer to you
-   - Check endpoint status
-
-4. **Optimize Queries**
-   - Reduce batch size
-   - Use pagination
-   - Cache results
-
-## Contract Interaction Errors
-
-### Problem: Contract Call Fails
-
-**Symptoms:**
-- "Contract error" message
-- Transaction fails with contract error
-- No specific error details
-
-**Diagnosis:**
-```bash
-# Check contract state
+# Verify admin state before calling
 soroban contract invoke \
-  --id <CONTRACT_ID> \
+  --id $CONTRACT_ID \
+  --source deployer \
+  --network $NETWORK \
+  -- get_admin
+# If this returns an address, initialization is complete — do NOT call initialize_admin again.
+```
+
+---
+
+### `"Admin not set"` / `"Contract admin has not been set"`
+
+**Cause:** An admin-only function was called before `initialize_admin`.
+
+**Fix:**
+```bash
+# Call initialize_admin once
+soroban contract invoke \
+  --id $CONTRACT_ID \
   --source deployer \
   --network testnet \
-  -- get_metrics
-
-# Check contract logs
-docker logs scavenger-contract
+  -- initialize_admin \
+  --admin $(soroban keys address deployer)
 ```
 
-**Solutions:**
+---
 
-1. **Verify Contract Deployment**
-   ```bash
-   # Check if contract exists
-   soroban contract info --id <CONTRACT_ID> --network testnet
-   
-   # If not found, redeploy contract
-   ```
+### `"Unauthorized: caller is not admin"` / `"Caller is not the contract admin"`
 
-2. **Check Contract State**
-   - Verify admin is initialized
-   - Check token address is set
-   - Ensure participant is registered
-
-3. **Verify Parameters**
-   - Check all required parameters provided
-   - Verify parameter types match
-   - Ensure values are in valid range
-
-4. **Check Gas**
-   - Increase gas limit
-   - Optimize contract code
-   - Batch operations if possible
-
-### Problem: Participant Not Found
-
-**Symptoms:**
-- "Participant not registered" error
-- Cannot retrieve participant info
-- Operations fail for participant
-
-**Solutions:**
-
-1. **Register Participant**
-   ```bash
-   soroban contract invoke \
-     --id <CONTRACT_ID> \
-     --source participant \
-     --network testnet \
-     -- register_participant \
-     --address <ADDRESS> \
-     --role 0 \
-     --name "Name" \
-     --lat 40.7128 \
-     --lon -74.0060
-   ```
-
-2. **Verify Registration**
-   ```bash
-   soroban contract invoke \
-     --id <CONTRACT_ID> \
-     --source participant \
-     --network testnet \
-     -- is_participant_registered \
-     --address <ADDRESS>
-   ```
-
-3. **Check Address Format**
-   - Ensure address is valid Stellar address
-   - Verify address is not truncated
-   - Check for typos
-
-## Performance Issues
-
-### Problem: Slow Application
-
-**Symptoms:**
-- UI is sluggish
-- Page loads slowly
-- High CPU/memory usage
+**Cause:** The transaction signer is not in the admin list.
 
 **Diagnosis:**
 ```bash
-# Check browser performance
-# Open DevTools (F12)
-# Go to Performance tab
-# Record and analyze
+# Check who the current admins are
+soroban contract invoke \
+  --id $CONTRACT_ID \
+  --source deployer \
+  --network $NETWORK \
+  -- get_admins
 
-# Check system resources
-top
-free -h
-df -h
+# Check your address
+soroban keys address <your-key-name>
 ```
 
-**Solutions:**
+**Fix:**
+- Use a key that is in the admin list, OR
+- Ask an existing admin to call `add_admin` to add your address.
 
-1. **Clear Browser Cache**
-   - Ctrl+Shift+Delete (Windows/Linux)
-   - Cmd+Shift+Delete (Mac)
-   - Select "All time"
+---
 
-2. **Disable Extensions**
-   - Disable browser extensions
-   - Restart browser
-   - Re-enable one by one
+### `"Participant already registered"`
 
-3. **Optimize Network**
-   - Use faster internet
-   - Close other applications
-   - Disable VPN if possible
+**Cause:** `register_participant` was called twice for the same address.
 
-4. **Update Application**
-   - Clear cache: `npm run clean`
-   - Rebuild: `npm run build`
-   - Restart: `npm run dev`
+**Diagnosis:**
+```bash
+soroban contract invoke \
+  --id $CONTRACT_ID \
+  --source deployer \
+  --network $NETWORK \
+  -- is_participant_registered \
+  --address <ADDRESS>
+# Returns: true → already registered
+```
 
-### Problem: High Memory Usage
+**Fix:** No action needed — the participant exists. Use `update_role` or `get_participant` as needed.
 
-**Symptoms:**
-- Application crashes
-- Browser becomes unresponsive
-- "Out of memory" errors
+---
 
-**Solutions:**
+### `"Caller is not a registered participant"`
 
-1. **Check Memory Leaks**
-   ```bash
-   # Use Chrome DevTools
-   # Memory tab > Take heap snapshot
-   # Compare snapshots over time
-   ```
+**Cause:** The address has not called `register_participant`, or the address was deregistered.
 
-2. **Reduce Data**
-   - Implement pagination
-   - Use virtual scrolling
-   - Limit query results
+**Fix:**
+```bash
+soroban contract invoke \
+  --id $CONTRACT_ID \
+  --source participant \
+  --network $NETWORK \
+  -- register_participant \
+  --address $(soroban keys address participant) \
+  --role 0 \
+  --name my_name \
+  --latitude 52520000 \
+  --longitude 13405000
+```
 
-3. **Optimize Code**
-   - Remove unused dependencies
-   - Implement lazy loading
-   - Use code splitting
+---
 
-4. **Restart Application**
-   - Close and reopen browser
-   - Clear cache
-   - Restart development server
+### `"Caller is not a manufacturer"`
 
-## Debug Mode Guide
+**Cause:** A participant with Recycler or Collector role tried to call a manufacturer-only function (e.g. `create_incentive`, `distribute_rewards`).
 
-### Enable Debug Logging
+**Fix:**
+1. Use an account registered with `ParticipantRole::Manufacturer` (role = 2), OR
+2. Call `update_role(address, Manufacturer)` on the current account (requires self-signature).
+
+---
+
+### `"Invalid transfer: role combination not allowed"`
+
+**Cause:** The transfer violates the allowed supply-chain path.
+
+**Allowed paths:**
+```
+Recycler   → Collector    ✓
+Recycler   → Manufacturer ✓
+Collector  → Manufacturer ✓
+
+Collector  → Recycler     ✗
+Manufacturer → Anyone     ✗
+Same role  → Same role    ✗
+```
+
+**Diagnosis:**
+```bash
+soroban contract invoke \
+  --id $CONTRACT_ID \
+  --source deployer \
+  --network $NETWORK \
+  -- is_valid_transfer \
+  --from <FROM_ADDRESS> \
+  --to <TO_ADDRESS>
+```
+
+**Fix:** Ensure both participants are registered and the sender's role can transfer to the recipient's role.
+
+---
+
+### `"Self-transfer is not allowed"`
+
+**Cause:** `from` and `to` addresses are the same in `transfer_waste_v2`.
+
+**Fix:** Use two different Stellar accounts for sender and recipient.
+
+---
+
+### `"Waste weight must be greater than zero"`
+
+**Cause:** Weight parameter was 0.
+
+**Fix:** Provide a positive weight in grams (e.g. `1000` = 1 kg).
+
+---
+
+### `"Waste weight exceeds maximum allowed"`
+
+**Cause:** Weight exceeds 1,000,000,000 grams (1,000 metric tonnes).
+
+**Fix:** Split the submission into multiple calls.
+
+---
+
+### `"Token address not set"`
+
+**Cause:** `reward_tokens` or `distribute_rewards` was called before the admin set the token contract address.
+
+**Fix:**
+```bash
+soroban contract invoke \
+  --id $CONTRACT_ID \
+  --source admin \
+  --network $NETWORK \
+  -- set_token_address \
+  --admin $(soroban keys address admin) \
+  --token_address <SEP41_TOKEN_CONTRACT_ID>
+```
+
+---
+
+### `"Incentive not found"` / `"Incentive is not active"`
+
+**Cause:** Invalid incentive ID or the incentive was deactivated.
+
+**Diagnosis:**
+```bash
+soroban contract invoke \
+  --id $CONTRACT_ID \
+  --source deployer \
+  --network $NETWORK \
+  -- get_incentive_by_id \
+  --incentive_id <ID>
+# Check 'active' field in the result
+```
+
+**Fix:**
+- Use `get_active_incentives()` to list valid IDs.
+- If budget is exhausted, create a new incentive.
+
+---
+
+### `"Insufficient balance"` (in `donate_to_charity`)
+
+**Cause:** Donation amount exceeds `total_tokens_earned` for the donor.
+
+**Diagnosis:**
+```bash
+soroban contract invoke \
+  --id $CONTRACT_ID \
+  --source deployer \
+  --network $NETWORK \
+  -- get_participant \
+  --address <DONOR_ADDRESS>
+# Check total_tokens_earned
+```
+
+**Fix:** Reduce donation amount to ≤ `total_tokens_earned`.
+
+---
+
+### `"Contract is paused"`
+
+**Cause:** Admin called `pause_contract`. All state-changing operations are blocked.
+
+**Fix:** Contact the contract admin to call `unpause_contract`. Read-only queries still work.
+
+---
+
+### `"Reentrant call detected"`
+
+**Cause:** A guarded function (`reward_tokens`, `donate_to_charity`, `distribute_rewards`) was called recursively — usually a bug in a calling contract.
+
+**Fix:** Review the integration code. Do not call guarded functions from within a Soroban callback that is itself triggered by the same contract.
+
+---
+
+### `"Total percentages cannot exceed 100"`
+
+**Cause:** `collector_percentage + owner_percentage > 100`.
+
+**Fix:**
+```bash
+# Default safe values: collector=5, owner=50 → sum=55 ✓
+soroban contract invoke \
+  --id $CONTRACT_ID \
+  --source admin \
+  --network $NETWORK \
+  -- set_percentages \
+  --admin <ADMIN_ADDRESS> \
+  --collector_percentage 5 \
+  --owner_percentage 50
+```
+
+---
+
+## Frontend Debugging Tips
+
+### Enable Debug Mode
+
+```bash
+# .env.local
+VITE_DEBUG=true
+```
 
 ```typescript
-// src/config.ts
-export const DEBUG = process.env.VITE_DEBUG === 'true';
+// src/utils/debug.ts
+export const debug = import.meta.env.VITE_DEBUG === 'true'
+  ? console.log.bind(console, '[scavngr]')
+  : () => {};
+```
 
-// src/main.tsx
-if (DEBUG) {
-  console.log('Debug mode enabled');
-  window.DEBUG = true;
+### Check Environment Variables at Runtime
+
+Open the browser console (F12 → Console):
+```javascript
+console.log(import.meta.env)
+// Verify VITE_CONTRACT_ID, VITE_NETWORK, VITE_RPC_URL are set correctly
+```
+
+### Contract Invocation Debugging
+
+```typescript
+import { SorobanRpc } from '@stellar/stellar-sdk';
+
+const server = new SorobanRpc.Server(import.meta.env.VITE_RPC_URL);
+
+// Simulate before submitting
+const simResult = await server.simulateTransaction(tx);
+if (SorobanRpc.Api.isSimulationError(simResult)) {
+  console.error('Simulation error:', simResult.error);
+  // Parse simResult.error.message for the panic string
 }
 ```
 
-### Debug Commands
+### Wallet Connection Debugging
 
-```bash
-# Enable debug mode
-export VITE_DEBUG=true
-npm run dev
+```javascript
+// Check wallet availability
+console.log('Freighter available:', typeof window.freighter !== 'undefined');
+console.log('Freighter connected:', await window.freighter.isConnected());
 
-# Check logs
-tail -f logs/app.log
-
-# Monitor network
-# Open DevTools > Network tab
+// Check network
+const network = await window.freighter.getNetwork();
+console.log('Wallet network:', network); // Should match VITE_NETWORK
 ```
 
-### Diagnostic Commands
+### Common Frontend Errors
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `"Contract ID invalid"` | Wrong or malformed `VITE_CONTRACT_ID` | Verify 56-char contract ID in `.env` |
+| `"Wallet not detected"` | Extension not installed | Install Freighter |
+| `"User declined"` | User rejected wallet popup | Re-initiate transaction |
+| `"Network mismatch"` | Wallet on testnet but app on mainnet | Switch wallet network |
+| `"Transaction simulation failed"` | Contract will panic | See contract error in sim result |
+| `"Insufficient XLM for fees"` | Account balance too low | Fund account via Friendbot (testnet) |
+| White screen on load | Missing env variable | Run `npm run build` and check console |
+
+### Inspecting Failed Transactions
+
+```javascript
+// After a failed transaction, inspect Horizon
+const txId = '<transaction_hash>';
+const response = await fetch(
+  `https://horizon-testnet.stellar.org/transactions/${txId}`
+);
+const tx = await response.json();
+console.log('Result XDR:', tx.result_xdr);
+// Decode with @stellar/stellar-sdk:
+// const result = xdr.TransactionResult.fromXDR(tx.result_xdr, 'base64');
+```
+
+### Running Frontend Tests
 
 ```bash
-# Check contract state
-soroban contract invoke \
-  --id <CONTRACT_ID> \
-  --source deployer \
-  --network testnet \
-  -- get_metrics
+cd frontend
 
-# Check participant
-soroban contract invoke \
-  --id <CONTRACT_ID> \
-  --source deployer \
-  --network testnet \
-  -- get_participant \
-  --address <ADDRESS>
+# Unit tests
+npm run test
 
-# Check waste
-soroban contract invoke \
-  --id <CONTRACT_ID> \
-  --source deployer \
-  --network testnet \
-  -- get_waste \
-  --waste_id 1
+# Visual regression
+npm run test:visual
+
+# Accessibility audit
+npm run test:a11y
+
+# E2E (requires running app)
+npm run test:e2e
+
+# Type check only
+npx tsc --noEmit
 ```
+
+---
+
+## Backend Service Troubleshooting
+
+### Service Won't Start
+
+**Diagnosis:**
+```bash
+# Check Docker container status
+docker-compose ps
+
+# Read logs
+docker-compose logs backend --tail=100
+
+# Inspect for port conflicts
+ss -tlnp | grep 8080
+```
+
+**Common causes:**
+- Missing environment variable → check `docker-compose.yml` and `.env`
+- Port 8080 already in use → stop conflicting process or change port
+- Database unreachable → see [Database section](#database-issues) below
+
+---
+
+### `Connection refused` to Backend API
+
+```bash
+# Verify backend is listening
+curl -v http://localhost:8080/health
+
+# Check internal Docker networking
+docker network inspect scavenger_default
+docker exec scavngr-backend curl http://localhost:8080/health
+```
+
+---
+
+### Database Issues
+
+```bash
+# Check database container
+docker-compose logs db --tail=50
+
+# Connect manually
+docker exec -it scavngr-db psql -U scavngr -d scavngr -c "SELECT version();"
+
+# Run pending migrations
+docker exec scavngr-backend cargo run --bin migrate
+# or
+docker-compose run --rm backend npm run db:migrate
+
+# Check for locked tables
+docker exec scavngr-db psql -U scavngr -d scavngr \
+  -c "SELECT pid, state, query FROM pg_stat_activity WHERE state != 'idle';"
+
+# Reset database (⚠️ DEVELOPMENT ONLY)
+docker-compose down -v
+docker-compose up -d db
+```
+
+---
+
+### Rate Limiting Issues (429 Too Many Requests)
+
+The backend enforces 100 req/min per IP.
+
+```bash
+# Check current rate limit headers
+curl -I http://localhost:8080/api/participants/...
+# Look for: X-RateLimit-Remaining, X-RateLimit-Reset
+
+# Increase limit in development (docker-compose.yml)
+# RATE_LIMIT_PER_MIN=1000
+```
+
+---
+
+### Backend Memory / CPU Spikes
+
+```bash
+# Monitor resource usage
+docker stats scavngr-backend
+
+# Check for slow queries
+docker exec scavngr-db psql -U scavngr -d scavngr \
+  -c "SELECT query, calls, mean_exec_time FROM pg_stat_statements ORDER BY mean_exec_time DESC LIMIT 10;"
+
+# Restart with increased memory (docker-compose.yml)
+# mem_limit: 512m
+```
+
+---
+
+## Indexer Sync Troubleshooting
+
+### Indexer Lagging Behind Latest Ledger
+
+**Symptoms:** Indexer dashboard shows stale data; `last_synced_ledger` is far behind current ledger.
+
+**Diagnosis:**
+```bash
+# Check indexer logs
+docker-compose logs indexer --tail=100
+
+# Check current ledger vs synced ledger
+curl http://localhost:3001/health | jq '{last_synced: .last_synced_ledger, network_ledger: .network_ledger}'
+
+# Check job queue depth
+docker-compose logs indexer | grep "queue depth"
+```
+
+**Fix:**
+```bash
+# Restart indexer (clears in-memory state, re-syncs from last checkpointed ledger)
+docker-compose restart indexer
+
+# If severely behind, clear the event cursor and re-sync from scratch
+# (will re-process all events — use with caution)
+docker exec scavngr-db psql -U scavngr -d scavngr \
+  -c "DELETE FROM indexer_state WHERE key = 'last_cursor';"
+docker-compose restart indexer
+```
+
+---
+
+### Indexer Failing to Connect to Soroban RPC
+
+```bash
+# Test RPC connectivity from inside the container
+docker exec scavngr-indexer \
+  curl -s https://soroban-testnet.stellar.org/ | jq .
+
+# Update RPC URL in .env if needed
+docker-compose down indexer
+# Edit STELLAR_RPC_URL in indexer/.env
+docker-compose up -d indexer
+```
+
+---
+
+### Missing Events / Gaps in Data
+
+**Cause:** Indexer missed events during a restart or RPC outage.
+
+**Fix:**
+```bash
+# Replay events from a specific ledger number
+# Edit indexer/.env:
+# REPLAY_FROM_LEDGER=<ledger_number>
+
+docker-compose restart indexer
+
+# Monitor until caught up
+docker-compose logs -f indexer | grep "synced ledger"
+```
+
+---
+
+### Job Queue Backing Up
+
+```bash
+# Check queue depth
+docker-compose logs indexer | grep -i "queue\|job\|pending"
+
+# Redis queue inspection
+docker exec scavngr-redis redis-cli LLEN job_queue
+
+# If queue is deadlocked, purge and restart
+docker exec scavngr-redis redis-cli DEL job_queue
+docker-compose restart indexer
+```
+
+---
+
+### Analytics Data Not Updating
+
+```bash
+# Trigger manual analytics refresh
+curl -X POST http://localhost:3001/admin/refresh-analytics \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+
+# Check analytics service logs
+docker-compose logs indexer | grep analytics
+```
+
+---
+
+### Duplicate Events in Database
+
+**Cause:** Indexer was restarted without advancing the cursor.
+
+**Fix:**
+```bash
+# Remove duplicates (idempotent upsert should prevent this, but if it occurs):
+docker exec scavngr-db psql -U scavngr -d scavngr << 'SQL'
+DELETE FROM contract_events a
+USING contract_events b
+WHERE a.id > b.id
+  AND a.event_id = b.event_id;
+SQL
+```
+
+---
+
+## Performance Tuning Guide
+
+### Contract Performance
+
+**1. Use batch operations where available**
+```bash
+# Instead of submitting one waste at a time:
+soroban contract invoke -- submit_materials_batch --materials '[...]'
+
+# Batch size limit: 100 items per call
+```
+
+**2. Prefer v2 APIs**
+v2 APIs (e.g. `recycle_waste`, `transfer_waste_v2`) use optimized storage layouts.
+
+**3. Simulate before submit**
+Always simulate transactions before submitting to avoid wasted fees on failing calls:
+```typescript
+const simResult = await server.simulateTransaction(tx);
+if (SorobanRpc.Api.isSimulationError(simResult)) {
+  throw new Error(`Simulation failed: ${simResult.error}`);
+}
+const preparedTx = SorobanRpc.assembleTransaction(tx, simResult).build();
+```
+
+**4. Batch reads off-chain**
+Use the indexer/backend API for paginated reads rather than calling the contract directly for every query:
+```
+GET /api/participants?offset=0&limit=50
+GET /api/wastes?participant=<address>&page=1
+```
+
+---
+
+### Frontend Performance
+
+**1. Enable production builds for benchmarking**
+```bash
+npm run build && npm run preview
+# Dev server is significantly slower than production build
+```
+
+**2. Use React Query / SWR for data caching**
+```typescript
+// Cache participant data for 5 minutes
+const { data } = useQuery({
+  queryKey: ['participant', address],
+  queryFn: () => fetchParticipant(address),
+  staleTime: 5 * 60 * 1000,
+});
+```
+
+**3. Lazy-load heavy components**
+```typescript
+const WasteMap = React.lazy(() => import('./components/WasteMap'));
+```
+
+**4. Bundle analysis**
+```bash
+npm run build -- --report
+# Open dist/report.html to identify large dependencies
+```
+
+**5. Check Lighthouse scores**
+```bash
+npm run lighthouse
+# Target: Performance > 80, Accessibility > 90
+```
+
+---
+
+### Backend Performance
+
+**1. Enable Redis caching for hot queries**
+
+Frequently read endpoints (e.g. global metrics, participant lists) should cache results:
+```
+Cache TTL recommendations:
+  GET /metrics          → 30 seconds
+  GET /participants     → 60 seconds
+  GET /incentives       → 120 seconds
+  GET /participant/:id  → 10 seconds
+```
+
+**2. Add database indexes for common query patterns**
+```sql
+-- Speed up participant lookups
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_wastes_owner
+  ON wastes(current_owner);
+
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_wastes_type
+  ON wastes(waste_type);
+
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_incentives_waste_type_active
+  ON incentives(waste_type, active) WHERE active = true;
+
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_transfer_history_waste
+  ON transfer_history(waste_id);
+```
+
+**3. Use connection pooling**
+```
+# docker-compose.yml or .env
+DATABASE_MAX_CONNECTIONS=20
+DATABASE_MIN_CONNECTIONS=2
+```
+
+**4. Enable Gzip compression on API responses**
+```rust
+// actix-web
+use actix_web::middleware::Compress;
+App::new().wrap(Compress::default())
+```
+
+---
+
+### Indexer Performance
+
+**1. Tune polling interval**
+
+The indexer polls the Soroban RPC for new events. Set the interval based on network conditions:
+```
+# indexer/.env
+POLL_INTERVAL_MS=5000    # 5 s is a good default (matches ~Stellar ledger time)
+# Reduce to 1000 for near-real-time; increase to 30000 if RPC is slow
+```
+
+**2. Job queue concurrency**
+```
+# indexer/.env
+JOB_CONCURRENCY=4        # Process 4 jobs simultaneously
+JOB_RETRY_ATTEMPTS=3
+JOB_RETRY_DELAY_MS=1000
+```
+
+**3. Redis cache TTLs for indexer queries**
+```
+# indexer/.env
+CACHE_TTL_SEARCH_RESULTS=60    # seconds
+CACHE_TTL_ANALYTICS=300        # 5 minutes
+CACHE_TTL_PARTICIPANT=30
+```
+
+**4. Batch database writes**
+
+Indexer should accumulate multiple events and write them in a single transaction:
+```typescript
+// Flush every 100 events or every 2 seconds, whichever comes first
+const BATCH_SIZE = 100;
+const FLUSH_INTERVAL_MS = 2000;
+```
+
+---
+
+### Database Performance
+
+```sql
+-- Check slow queries
+SELECT query, calls, total_exec_time / calls AS avg_ms
+FROM pg_stat_statements
+ORDER BY avg_ms DESC
+LIMIT 20;
+
+-- Check table bloat
+SELECT schemaname, tablename,
+  pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) AS size
+FROM pg_tables
+WHERE schemaname = 'public'
+ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC;
+
+-- Run VACUUM ANALYZE to update statistics
+VACUUM ANALYZE participants;
+VACUUM ANALYZE wastes;
+VACUUM ANALYZE transfer_history;
+```
+
+---
+
+## Wallet & Transaction Issues
+
+### Wallet Not Detected
+
+```javascript
+// In browser console
+console.log('Freighter:', window.freighter);
+```
+
+**Solutions:**
+1. Install [Freighter](https://www.freighter.app/) browser extension
+2. Reload page after installation
+3. Check extension is enabled for the current site (extension icon → gear → Allow on this site)
+
+---
+
+### Transaction Timeout (> 30 s)
+
+**Check:**
+```bash
+# Query Horizon for tx status
+curl "https://horizon-testnet.stellar.org/transactions/<TX_HASH>" | jq '.status'
+```
+
+**Solutions:**
+- If not found: transaction dropped — resubmit
+- If `failed`: see `result_xdr` for error details
+- Increase fee: standard 100 stroops may be insufficient during network congestion
+
+---
+
+### "Sequence number too old"
+
+**Cause:** You built a transaction and didn't submit it quickly enough. The account's sequence number changed.
+
+**Fix:** Rebuild the transaction (fetch fresh sequence number) and resubmit immediately.
+
+---
+
+### Account Not Found on Horizon
+
+```bash
+# Fund testnet account via Friendbot
+curl "https://friendbot.stellar.org?addr=<YOUR_ADDRESS>"
+```
+
+---
+
+## Network & Connectivity Issues
+
+```bash
+# Test Soroban RPC
+curl -s https://soroban-testnet.stellar.org/ | jq '.status'
+
+# Test Horizon
+curl -s https://horizon-testnet.stellar.org/ | jq '._links'
+
+# Check Stellar network status
+# https://status.stellar.org/
+
+# DNS check
+nslookup soroban-testnet.stellar.org
+
+# Port check
+nc -zv soroban-testnet.stellar.org 443
+```
+
+---
 
 ## FAQ
 
-### Q: How do I reset my account?
+**Q: Can I recover a private key?**  
+A: No. If you have a seed phrase, import it into Freighter. Otherwise, the key is unrecoverable.
 
-**A:** You cannot reset your Stellar account. Create a new account:
-1. Generate new keypair: `soroban keys generate new-account`
-2. Fund new account: Use Friendbot for testnet
-3. Register as new participant
+**Q: Can I cancel a submitted transaction?**  
+A: No. Transactions are final once included in a ledger. Reverse effects with a new transaction if needed.
 
-### Q: How do I recover a lost private key?
+**Q: Why is my waste not showing in the UI?**  
+A: The indexer syncs on a ~5 s interval. Wait 10–15 seconds and refresh. If still missing, check indexer logs.
 
-**A:** You cannot recover a lost private key. If you have a seed phrase:
-1. Import seed phrase into wallet
-2. Recover account access
-3. Transfer funds to new account if needed
+**Q: Can a participant have multiple roles?**  
+A: No. Each address has exactly one role. Use separate accounts for different roles, or call `update_role` to change.
 
-### Q: Why is my transaction pending?
+**Q: Why did my reward distribution fail?**  
+A: Common causes: incentive budget exhausted, token address not set, waste doesn't exist. Check each with the get functions and contract error message.
 
-**A:** Transactions typically confirm in 3-5 seconds. If pending longer:
-1. Check transaction status on Horizon
-2. Verify network is operational
-3. Retry with higher fee if needed
+**Q: The contract is paused — what can I do?**  
+A: Read-only queries still work. Contact the admin team. State-changing calls are blocked until `unpause_contract` is called.
 
-### Q: How do I increase transaction fee?
+---
 
-**A:** Resubmit transaction with higher fee:
-```bash
-# Standard: 100 stroops
-# High: 1000 stroops
-# Very High: 10000 stroops
-```
+## Escalation & Support
 
-### Q: Can I cancel a transaction?
+### Self-Service Resources
 
-**A:** No, transactions cannot be cancelled once submitted. You can:
-1. Wait for confirmation
-2. Resubmit with different parameters
-3. Create new transaction to reverse effects
-
-### Q: How do I report a bug?
-
-**A:** Report bugs on GitHub:
-1. Go to [Issues](https://github.com/Xoulomon/Scavenger/issues)
-2. Click "New Issue"
-3. Provide:
-   - Description of issue
-   - Steps to reproduce
-   - Expected vs actual behavior
-   - Screenshots/logs if applicable
-
-### Q: How do I get help?
-
-**A:** Get help through:
-1. **Documentation**: Read guides and API docs
-2. **GitHub Issues**: Search existing issues
-3. **Community**: Join Stellar Discord
-4. **Support**: Contact support@scavenger.app
-
-## Diagnostic Checklist
-
-- [ ] Internet connection working
-- [ ] Wallet extension installed and enabled
-- [ ] Correct network selected (TESTNET/MAINNET)
-- [ ] Account has sufficient balance
-- [ ] Participant is registered
-- [ ] Contract is deployed
-- [ ] RPC endpoint is accessible
-- [ ] Browser cache cleared
-- [ ] No browser extensions interfering
-- [ ] System has sufficient resources
-
-## Getting More Help
-
-### Resources
-
+- [API Reference Guide](./API_REFERENCE.md)
+- [Deployment Runbook](./DEPLOYMENT_RUNBOOK.md)
+- [Architecture Diagram](./architecture-diagram.svg)
 - [Stellar Documentation](https://developers.stellar.org/)
 - [Soroban Documentation](https://developers.stellar.org/docs/learn/soroban)
 - [GitHub Issues](https://github.com/Xoulomon/Scavenger/issues)
-- [Stellar Discord](https://discord.gg/stellar)
 
-### Reporting Issues
+### Diagnostic Commands Summary
 
-When reporting issues, include:
-1. Error message (exact text)
-2. Steps to reproduce
-3. Expected behavior
-4. Actual behavior
-5. Browser/OS version
-6. Network (TESTNET/MAINNET)
-7. Screenshots/logs if applicable
+```bash
+# Contract state snapshot
+soroban contract invoke --id $CONTRACT_ID --source deployer --network $NETWORK -- get_metrics
+soroban contract invoke --id $CONTRACT_ID --source deployer --network $NETWORK -- get_admins
+soroban contract invoke --id $CONTRACT_ID --source deployer --network $NETWORK -- get_token_address
 
-### Contact Support
+# Service health
+curl http://localhost:8080/health      # backend
+curl http://localhost:3001/health      # indexer
+docker-compose ps                       # all containers
 
-- **Email**: support@scavenger.app
-- **Discord**: [Stellar Community](https://discord.gg/stellar)
-- **GitHub**: [Issues](https://github.com/Xoulomon/Scavenger/issues)
-- **Twitter**: [@ScavengerApp](https://twitter.com/ScavengerApp)
-
-## Troubleshooting Flowchart
-
+# Logs
+docker-compose logs backend --tail=50
+docker-compose logs indexer --tail=50
+docker-compose logs db --tail=50
 ```
-Issue Encountered
-    ↓
-Is it a wallet issue?
-    ├─ Yes → Check Wallet Connection Issues
-    └─ No → Continue
-    ↓
-Is it a transaction issue?
-    ├─ Yes → Check Transaction Failures
-    └─ No → Continue
-    ↓
-Is it a network issue?
-    ├─ Yes → Check Network Issues
-    └─ No → Continue
-    ↓
-Is it a contract issue?
-    ├─ Yes → Check Contract Interaction Errors
-    └─ No → Continue
-    ↓
-Is it a performance issue?
-    ├─ Yes → Check Performance Issues
-    └─ No → Continue
-    ↓
-Check FAQ and Resources
-    ↓
-Report Issue on GitHub
-```
+
+### Reporting Bugs
+
+When filing a GitHub issue, include:
+1. Exact error message / panic string
+2. Function name and parameters called
+3. Network (testnet / mainnet)
+4. Steps to reproduce
+5. Expected vs actual behaviour
+6. Relevant logs (sanitize any private keys)
+
+### Contact
+
+- **Email:** support@scavenger.app  
+- **GitHub:** [Issues](https://github.com/Xoulomon/Scavenger/issues)  
+- **Discord:** [Stellar Community](https://discord.gg/stellar)

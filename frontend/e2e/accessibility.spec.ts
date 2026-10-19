@@ -1,5 +1,20 @@
 import { test, expect } from '@playwright/test';
 import { injectAxe, checkA11y } from 'axe-playwright';
+test.describe('Accessibility - High Contrast Mode', () => {
+  test('should have no accessibility violations in high contrast mode', async ({ page }) => {
+    await page.goto('/');
+    // Simulate high contrast mode
+    await page.evaluate(() => {
+      document.documentElement.classList.remove('dark');
+      document.documentElement.classList.add('high-contrast');
+    });
+    await injectAxe(page);
+    await checkA11y(page, null, {
+      detailedReport: true,
+    });
+  });
+});
+import { injectAxe, checkA11y } from 'axe-playwright';
 
 test.describe('Accessibility - Homepage', () => {
   test('should have no accessibility violations on homepage', async ({ page }) => {

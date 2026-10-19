@@ -541,6 +541,233 @@ Total per day: 1M stroops max
 - [ ] Performance budgets defined
 - [ ] Load testing completed
 
+## Monitoring and Alerting Guide
+
+### Overview
+
+Continuous monitoring surfaces regressions before users notice them. The Scavenger platform uses a layered observability stack: **Prometheus** for metrics, **Grafana** for dashboards, and **Loki / structured logging** for log aggregation.
+
+### Metrics Collection
+
+#### Backend (Rust / Actix-web)
+
+Expose Prometheus metrics from the API server:
+
+```rust
+use actix_web_prom::PrometheusMetricsBuilder;
+
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
+    let prometheus = PrometheusMetricsBuilder::new("scavenger_api")
+        .endpoint("/metrics")
+        .build()
+        .unwrap();
+
+    HttpServer::new(move || {
+        App::new()
+            .wrap(prometheus.clone())
+            .service(routes)
+    })
+    .bind("0.0.0.0:8080")?
+    .run()
+    .await
+}
+```
+
+Key metrics to expose:
+
+| Metric | Type | Description |
+|---|---|---|
+| `api_request_duration_seconds` | Histogram | Request latency by endpoint |
+| `api_request_total` | Counter | Total requests by status code |
+| `db_query_duration_seconds` | Histogram | Database query latency |
+| `cache_hit_total` | Counter | Redis cache hits |
+| `cache_miss_total` | Counter | Redis cache misses |
+| `waste_submitted_total` | Counter | Waste items submitted |
+| `rewards_distributed_total` | Counter | Tokens distributed |
+
+#### Frontend
+
+Use the **Web Vitals** library to send Core Web Vitals to your analytics endpoint:
+
+```typescript
+import { onFCP, onLCP, onCLS, onTTFB, onINP } from 'web-vitals';
+
+function sendToAnalytics(metric: Metric) {
+  fetch('/api/vitals', {
+    method: 'POST',
+    body: JSON.stringify(metric),
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+onFCP(sendToAnalytics);
+onLCP(sendToAnalytics);
+onCLS(sendToAnalytics);
+onTTFB(sendToAnalytics);
+onINP(sendToAnalytics);
+```
+
+#### Contract / Indexer
+
+The TypeScript indexer (`indexer/src/indexer.ts`) streams on-chain events. Expose indexer health:
+
+```typescript
+// indexer/src/index.ts
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    lastIndexedLedger: indexer.lastLedger,
+    eventLag: Date.now() - indexer.lastEventTimestamp,
+  });
+});
+```
+
+### Dashboards
+
+Run the monitoring stack with Docker Compose:
+
+```bash
+docker compose -f docker-compose.monitoring.yml up -d
+```
+
+This starts:
+- **Prometheus** on `http://localhost:9090`
+- **Grafana** on `http://localhost:3000` (admin / admin)
+
+#### Recommended Dashboard Panels
+
+**API Performance Panel**
+```yaml
+# Prometheus query examples
+# P95 latency
+histogram_quantile(0.95, rate(api_request_duration_seconds_bucket[5m]))
+
+# Error rate
+rate(api_request_total{status=~"5.."}[5m]) / rate(api_request_total[5m])
+
+# Requests per second
+rate(api_request_total[1m])
+```
+
+**Contract Activity Panel**
+```yaml
+# Waste submission rate
+rate(waste_submitted_total[1m])
+
+# Rewards distributed (tokens/hour)
+increase(rewards_distributed_total[1h])
+```
+
+**Infrastructure Panel**
+```yaml
+# Memory usage
+process_resident_memory_bytes
+
+# CPU usage
+rate(process_cpu_seconds_total[1m])
+
+# Database connections
+pg_stat_activity_count
+```
+
+### Alerting
+
+Configure Prometheus alerting rules in `docker-compose.monitoring.yml`:
+
+```yaml
+# alerts.yml
+groups:
+  - name: scavenger_api
+    rules:
+      - alert: HighErrorRate
+        expr: rate(api_request_total{status=~"5.."}[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "API error rate above 5%"
+
+      - alert: HighLatency
+        expr: histogram_quantile(0.95, rate(api_request_duration_seconds_bucket[5m])) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "P95 latency above 500ms"
+
+      - alert: IndexerLag
+        expr: indexer_event_lag_seconds > 60
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Indexer is more than 60s behind the chain"
+
+      - alert: CacheHitRateDropped
+        expr: rate(cache_hit_total[5m]) / (rate(cache_hit_total[5m]) + rate(cache_miss_total[5m])) < 0.7
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Cache hit rate below 70%"
+```
+
+### Structured Logging
+
+Use structured (JSON) logging in all services for easy querying in Loki / CloudWatch:
+
+```rust
+// Rust backend — using tracing + tracing-subscriber
+use tracing::{info, warn, error};
+use tracing_subscriber::fmt::format::FmtSpan;
+
+tracing_subscriber::fmt()
+    .json()
+    .with_span_events(FmtSpan::CLOSE)
+    .init();
+
+// Usage
+info!(
+    participant = %address,
+    waste_id = waste_id,
+    action = "waste_submitted",
+    "Waste item submitted successfully"
+);
+```
+
+```typescript
+// TypeScript indexer — structured log
+console.log(JSON.stringify({
+  level: 'info',
+  event: 'waste_indexed',
+  waste_id: wasteId,
+  ledger: ledgerSeq,
+  timestamp: new Date().toISOString(),
+}));
+```
+
+### Health Check Endpoints
+
+| Service | Endpoint | Expected Response |
+|---|---|---|
+| Backend API | `GET /health` | `{"status":"ok"}` |
+| Indexer | `GET /health` | `{"status":"ok","lastIndexedLedger":N}` |
+| Frontend | Lighthouse score | Performance ≥ 90 |
+
+### On-Call Runbook
+
+When an alert fires:
+
+1. **Check dashboards** — identify which service/layer is degraded
+2. **Check logs** — `docker compose logs <service> --tail=100`
+3. **Check Stellar network status** — [status.stellar.org](https://status.stellar.org)
+4. **Scale if needed** — adjust replica count in `k8s/` manifests
+5. **Roll back if broken** — use blue/green deployment (see `docs/BLUE_GREEN_DEPLOYMENT.md`)
+6. **Post-mortem** — document findings in a GitHub issue
+
+---
+
 ## Tools and Resources
 
 - [Lighthouse](https://developers.google.com/web/tools/lighthouse)
@@ -549,6 +776,9 @@ Total per day: 1M stroops max
 - [Flamegraph](https://www.brendangregg.com/flamegraphs.html)
 - [pgBadger](https://pgbadger.darold.net/)
 - [Soroban Gas Estimator](https://developers.stellar.org/docs/learn/soroban/gas-metering)
+- [Prometheus](https://prometheus.io/docs/)
+- [Grafana](https://grafana.com/docs/)
+- [Web Vitals](https://web.dev/vitals/)
 
 ## References
 

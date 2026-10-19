@@ -12,36 +12,24 @@
     "search": "Search",
     "filter": "Filter",
     "export": "Export",
-    "download": "Download"
+    "submit": "Submit",
+    "back": "Back",
+    "noData": "No data available"
   },
   "nav": {
-    "home": "Home",
     "dashboard": "Dashboard",
-    "analytics": "Analytics",
-    "incentives": "Incentives",
-    "community": "Community",
-    "settings": "Settings"
-  },
-  "waste": {
-    "title": "Waste Management",
-    "register": "Register Waste",
-    "transfer": "Transfer Waste",
-    "details": "Waste Details",
-    "type": "Waste Type",
-    "quantity": "Quantity",
-    "location": "Location",
-    "status": "Status"
+    "settings": "Settings",
+    "profile": "Profile"
   },
   "errors": {
     "network": "Network error occurred",
     "unauthorized": "Unauthorized access",
     "notFound": "Resource not found",
-    "validation": "Validation error",
-    "unknown": "An unknown error occurred"
+    "unknown": "An unknown error occurred",
+    "walletNotFound": "Wallet not found. Please install Freighter."
   },
   "settings": {
     "language": "Language",
-    "theme": "Theme",
-    "notifications": "Notifications"
+    "theme": "Theme"
   }
 }

@@ -9,7 +9,9 @@ export enum WasteType {
   PetPlastic = 1,
   Plastic = 2,
   Metal = 3,
-  Glass = 4
+  Glass = 4,
+  Organic = 5,
+  Electronic = 6
 }
 
 export interface Participant {

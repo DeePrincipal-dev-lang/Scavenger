@@ -44,26 +44,63 @@ vault write auth/kubernetes/config \
 
 ## Secret Rotation
 
-Secrets are automatically rotated every 30 days. Configure rotation policies:
+Rotation intervals per secret type:
+
+| Secret | Interval | Policy file |
+|---|---|---|
+| API keys / Firebase | 30 days | `config/vault-rotation-policy.hcl` |
+| Stellar signing key | 90 days | `config/vault-rotation-policy.hcl` |
+| Database credentials | 7 days | `config/vault-rotation-policy.hcl` |
+
+Apply rotation policy:
 
 ```bash
-vault write secret/config/rotation \
-  auto_rotate=true \
-  rotate_interval=2592000  # 30 days in seconds
+vault policy write scavenger-rotation config/vault-rotation-policy.hcl
 ```
+
+Check which secrets need rotation:
+
+```bash
+VAULT_TOKEN=<token> ./scripts/rotate-secrets.sh
+```
+
+The script exits with code `2` if any secret exceeds its rotation window.
+
+## Secret Injection (Kubernetes)
+
+Vault Agent is configured as a sidecar injector. Apply the manifest:
+
+```bash
+kubectl apply -f k8s/vault-agent-injector.yaml
+```
+
+Secrets are mounted at `/vault/secrets/` inside the pod and sourced into the environment at startup. The injector uses pod annotations — see `k8s/vault-agent-injector.yaml` for the full annotation set.
+
+The agent config is in `config/vault-config.hcl`. Templates that render `.env`-style files live in `config/vault-templates/`.
 
 ## Access Control
 
-Secrets are accessed via Kubernetes service account authentication.
+Secrets are accessed via Kubernetes service account authentication. The `scavenger` service account is bound to the `scavenger-app` Vault role, which grants read-only access to `secret/data/scavenger/*`.
 
 ## Audit Logging
 
 All secret access is logged to `/vault/logs/audit.log`.
 
+Enable during setup:
+
+```bash
+vault audit enable file file_path=/vault/logs/audit.log
+```
+
 ## Local Development
 
-For local development, use environment variables or `.env` file.
+For local development, use environment variables or a `.env` file. Do not run `scripts/init-vault.sh` against production Vault.
 
 ## Emergency Access
 
-In case of emergency, use break-glass procedure with root token.
+In an emergency, use the break-glass procedure with the root token. The root token must be regenerated after use:
+
+```bash
+vault token revoke <root-token>
+vault operator generate-root
+```

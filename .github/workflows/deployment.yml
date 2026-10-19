@@ -2,136 +2,57 @@ name: Deployment
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
   workflow_dispatch:
-    inputs:
-      environment:
-        description: 'Deployment environment'
-        required: true
-        default: 'staging'
-        type: choice
-        options:
-          - staging
-          - production
 
 jobs:
-  build:
-    name: Build Artifacts
+  build-and-deploy:
+    name: Build and Deploy to Staging
     runs-on: ubuntu-latest
-    outputs:
-      image-tag: ${{ steps.meta.outputs.tags }}
+    environment: staging
     steps:
       - uses: actions/checkout@v4
+      
+      - name: Build Contract
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          rustup target add wasm32-unknown-unknown
+          cd stellar-contract && cargo build --target wasm32-unknown-unknown --release
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+      - name: Build Backend
+        run: |
+          cd backend && cargo build --release
 
-      - name: Docker meta
-        id: meta
-        uses: docker/metadata-action@v4
+      - name: Build Frontend
+        run: |
+          cd frontend && npm ci && npm run build
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
         with:
-          images: |
-            ghcr.io/${{ github.repository }}
-          tags: |
-            type=ref,event=branch
-            type=semver,pattern={{version}}
-            type=sha
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
 
-      - name: Build and push
-        uses: docker/build-push-action@v4
+      - name: Push to ECR
+        run: |
+          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
+          docker build -t scavenger-backend:latest -f backend/Dockerfile backend/
+          docker tag scavenger-backend:latest ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/scavenger-backend:latest
+          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/scavenger-backend:latest
+
+      - name: Deploy to Kubernetes
+        run: |
+          aws eks update-kubeconfig --name scavenger-cluster --region us-east-1
+          kubectl apply -f k8s/deployment.yml
+          kubectl rollout status deployment/scavenger-backend -n default
+
+  test-deployment:
+    name: Test Deployment
+    runs-on: ubuntu-latest
+    needs: build-and-deploy
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          context: .
-          push: false
-          tags: ${{ steps.meta.outputs.tags }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  deploy-staging:
-    name: Deploy to Staging
-    runs-on: ubuntu-latest
-    needs: build
-    if: github.ref == 'refs/heads/main'
-    environment:
-      name: staging
-      url: https://staging.scavenger.app
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Deploy to staging
-        run: |
-          echo "Deploying to staging environment..."
-          # Add deployment commands here
-
-      - name: Notify deployment
-        if: success()
-        run: |
-          echo "Deployment to staging successful"
-
-  smoke-staging:
-    name: Smoke Tests (Staging)
-    needs: deploy-staging
-    uses: ./.github/workflows/smoke-tests.yml
-    with:
-      base_url: 'https://staging.scavenger.app'
-    secrets:
-      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-
-  deploy-production:
-    name: Deploy to Production
-    runs-on: ubuntu-latest
-    needs: build
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production'
-    environment:
-      name: production
-      url: https://scavenger.app
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Create deployment
-        uses: actions/github-script@v6
-        with:
-          script: |
-            const deployment = await github.rest.repos.createDeployment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              ref: context.sha,
-              environment: 'production',
-              required_contexts: [],
-              auto_merge: false
-            });
-            return deployment.data.id;
-
-      - name: Deploy to production
-        run: |
-          echo "Deploying to production environment..."
-          # Add production deployment commands
-
-      - name: Verify deployment
-        run: |
-          echo "Verifying production deployment..."
-          # Add verification commands
-
-  smoke-production:
-    name: Smoke Tests (Production)
-    needs: deploy-production
-    uses: ./.github/workflows/smoke-tests.yml
-    with:
-      base_url: 'https://scavenger.app'
-    secrets:
-      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-
-  rollback:
-    name: Rollback Deployment
-    runs-on: ubuntu-latest
-    if: failure() && github.event_name == 'workflow_dispatch'
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Rollback to previous version
-        run: |
-          echo "Rolling back to previous stable version..."
-          # Add rollback commands
-
-      - name: Notify rollback
-        run: |
-          echo "Rollback completed"
+          node-version: '18'
+      - run: cd integration-tests && npm ci && npm test

@@ -41,3 +41,8 @@ variable "db_host" {
 variable "db_name" {
   type = string
 }
+
+variable "certificate_arn" {
+  type        = string
+  description = "ACM certificate ARN for HTTPS listener"
+}

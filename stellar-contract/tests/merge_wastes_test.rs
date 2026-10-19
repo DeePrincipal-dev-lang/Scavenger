@@ -22,7 +22,14 @@ fn setup(env: &Env) -> (ScavengerContractClient, Address, Address) {
     (client, admin, owner)
 }
 
-fn make_waste(client: &ScavengerContractClient, owner: &Address, waste_type: WasteType, weight: u128, lat: i128, lon: i128) -> u128 {
+fn make_waste(
+    client: &ScavengerContractClient,
+    owner: &Address,
+    waste_type: WasteType,
+    weight: u128,
+    lat: i128,
+    lon: i128,
+) -> u128 {
     client.recycle_waste(&waste_type, &weight, owner, &lat, &lon)
 }
 
@@ -37,7 +44,7 @@ fn test_merge_two_wastes() {
     let id1 = make_waste(&client, &owner, WasteType::Plastic, 500, 0, 0);
     let id2 = make_waste(&client, &owner, WasteType::Plastic, 300, 0, 0);
 
-    let merged_id = client.merge_wastes(&vec![&env, id1, id2], &owner).unwrap();
+    let merged_id = client.merge_wastes(&vec![&env, id1, id2], &owner);
 
     let merged = client.get_waste_v2(&merged_id).unwrap();
     assert_eq!(merged.weight, 800);
@@ -55,7 +62,7 @@ fn test_sources_are_deactivated_after_merge() {
     let id1 = make_waste(&client, &owner, WasteType::Metal, 400, 0, 0);
     let id2 = make_waste(&client, &owner, WasteType::Metal, 600, 0, 0);
 
-    client.merge_wastes(&vec![&env, id1, id2], &owner).unwrap();
+    client.merge_wastes(&vec![&env, id1, id2], &owner);
 
     assert!(!client.get_waste_v2(&id1).unwrap().is_active);
     assert!(!client.get_waste_v2(&id2).unwrap().is_active);
@@ -71,7 +78,7 @@ fn test_merged_weight_equals_sum() {
     let id2 = make_waste(&client, &owner, WasteType::Glass, 200, 0, 0);
     let id3 = make_waste(&client, &owner, WasteType::Glass, 300, 0, 0);
 
-    let merged_id = client.merge_wastes(&vec![&env, id1, id2, id3], &owner).unwrap();
+    let merged_id = client.merge_wastes(&vec![&env, id1, id2, id3], &owner);
 
     assert_eq!(client.get_waste_v2(&merged_id).unwrap().weight, 600);
 }
@@ -85,7 +92,7 @@ fn test_merged_waste_in_owner_list() {
     let id1 = make_waste(&client, &owner, WasteType::Paper, 500, 0, 0);
     let id2 = make_waste(&client, &owner, WasteType::Paper, 500, 0, 0);
 
-    let merged_id = client.merge_wastes(&vec![&env, id1, id2], &owner).unwrap();
+    let merged_id = client.merge_wastes(&vec![&env, id1, id2], &owner);
 
     let owner_wastes = client.get_participant_wastes_v2(&owner);
     assert!(owner_wastes.contains(&merged_id));
@@ -102,7 +109,7 @@ fn test_merged_inherits_location() {
     let id1 = make_waste(&client, &owner, WasteType::Metal, 300, 10_000_000, 20_000_000);
     let id2 = make_waste(&client, &owner, WasteType::Metal, 700, 10_000_000, 20_000_000);
 
-    let merged_id = client.merge_wastes(&vec![&env, id1, id2], &owner).unwrap();
+    let merged_id = client.merge_wastes(&vec![&env, id1, id2], &owner);
 
     let merged = client.get_waste_v2(&merged_id).unwrap();
     assert_eq!(merged.latitude, 10_000_000);
@@ -134,10 +141,10 @@ fn test_transfer_histories_aggregated() {
     let id2 = make_waste(&client, &owner, WasteType::Plastic, 300, 0, 0);
 
     // Transfer id1 to collector (Recycler -> Collector is valid)
-    client.transfer_waste_v2(&id1, &owner, &collector, &0, &0).unwrap();
+    client.transfer_waste_v2(&id1, &owner, &collector, &0, &0);
 
     // Now collector merges id1_col and the transferred id1
-    let merged_id = client.merge_wastes(&vec![&env, id1_col, id1], &collector).unwrap();
+    let merged_id = client.merge_wastes(&vec![&env, id1_col, id1], &collector);
 
     let h1: soroban_sdk::Vec<_> = client.get_waste_transfer_history_v2(&id1_col);
     let h2: soroban_sdk::Vec<_> = client.get_waste_transfer_history_v2(&id1);
@@ -158,7 +165,7 @@ fn test_merge_max_20_wastes() {
         ids.push_back(make_waste(&client, &owner, WasteType::Glass, 50, 0, 0));
     }
 
-    let merged_id = client.merge_wastes(&ids, &owner).unwrap();
+    let merged_id = client.merge_wastes(&ids, &owner);
     assert_eq!(client.get_waste_v2(&merged_id).unwrap().weight, 1000);
 }
 

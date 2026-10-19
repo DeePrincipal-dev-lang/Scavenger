@@ -486,6 +486,217 @@ pub fn add_weight(env: &Env, waste_id: u64, weight: u128) -> Result<(), Error> {
 }
 ```
 
+## Access Control Patterns
+
+Correct access control is the single most important security property of the Scavngr contract. Every state-mutating function must verify **who is calling** and **what they are permitted to do**.
+
+### Principle of Least Privilege
+
+Grant the minimum permission needed for each role:
+
+| Role | Can Do | Cannot Do |
+|---|---|---|
+| Recycler | Submit waste, transfer to Collector | Create incentives, verify materials |
+| Collector | Receive waste, transfer to Manufacturer | Create incentives, register participants |
+| Manufacturer | Create incentives, receive waste, distribute rewards | Admin actions |
+| Admin | Configure system, deactivate waste, manage admins | Bypass multi-sig |
+
+### Role-Based Access Control (RBAC) in Soroban
+
+```rust
+// Pattern: always call require_auth() before any state mutation
+pub fn submit_material(env: Env, submitter: Address, ...) -> Result<u64, Error> {
+    submitter.require_auth();           // 1. Authenticate caller
+    Self::require_not_paused(&env);     // 2. Check system state
+
+    // 3. Authorize by role
+    let participant = Self::get_participant(env.clone(), submitter.clone())
+        .ok_or(Error::NotRegistered)?;
+    
+    if participant.role != ParticipantRole::Recycler {
+        return Err(Error::UnauthorizedRole);
+    }
+
+    // 4. Execute action
+    // ...
+}
+```
+
+### Admin-Only Guards
+
+```rust
+fn require_admin(env: &Env, caller: &Address) {
+    let admins: Vec<Address> = env
+        .storage()
+        .instance()
+        .get(&ADMINS)
+        .unwrap_or_default();
+    
+    if !admins.contains(caller) {
+        panic!("Caller is not an admin");
+    }
+}
+
+// Usage in admin-only functions
+pub fn set_token_address(env: Env, admin: Address, token_address: Address) {
+    admin.require_auth();
+    require_admin(&env, &admin);
+    // ...
+}
+```
+
+### Multi-Sig for Critical Actions
+
+Critical configuration changes require approval from multiple admins to prevent single points of compromise:
+
+```rust
+// Actions protected by multi-sig
+pub enum AdminAction {
+    TransferAdmin(Vec<Address>),  // Change the admin set
+    SetPercentages(u32, u32),     // Change reward split
+    DeactivateWaste(u128),        // Permanently deactivate waste
+}
+
+// Flow:
+// 1. Any admin proposes an action
+// 2. Other admins approve
+// 3. Action executes only when approvals >= MULTISIG_THRESHOLD
+```
+
+### Ownership Checks for Entity Mutations
+
+Always verify the caller owns or has authority over the entity being mutated:
+
+```rust
+pub fn transfer_waste(env: Env, waste_id: u64, from: Address, to: Address, ...) {
+    from.require_auth();
+
+    let waste = Self::get_waste(&env, waste_id).ok_or(Error::WasteNotFound)?;
+
+    // Verify caller is current holder — not just any registered participant
+    if waste.current_holder != from {
+        return Err(Error::NotWasteHolder);
+    }
+
+    // Verify transfer path is valid (Recycler → Collector → Manufacturer)
+    if !Self::is_valid_transfer(&env, from.clone(), to.clone()) {
+        return Err(Error::InvalidTransferPath);
+    }
+    // ...
+}
+```
+
+### Incentive Ownership
+
+Incentive updates and deactivations must be performed only by the original creator:
+
+```rust
+pub fn update_incentive(env: Env, incentive_id: u64, rewarder: Address, ...) {
+    rewarder.require_auth();
+    
+    let incentive = Self::get_incentive(&env, incentive_id)
+        .ok_or(Error::IncentiveNotFound)?;
+    
+    // Only the original rewarder may modify their incentive
+    if incentive.rewarder != rewarder {
+        return Err(Error::NotIncentiveOwner);
+    }
+    // ...
+}
+```
+
+### Backend API Access Control
+
+The REST API enforces access control via JWT + role middleware:
+
+```rust
+// Actix-web guard: verify JWT and extract role
+pub async fn require_role(
+    req: ServiceRequest,
+    role: ParticipantRole,
+) -> Result<ServiceResponse, Error> {
+    let token = extract_bearer_token(&req)?;
+    let claims = verify_jwt(token)?;
+    
+    if claims.role != role {
+        return Err(error::ErrorForbidden("Insufficient role"));
+    }
+    
+    srv.call(req).await
+}
+
+// Apply to route
+web::scope("/api/incentives")
+    .wrap_fn(|req, srv| require_role(req, ParticipantRole::Manufacturer))
+    .route("/create", web::post().to(create_incentive))
+```
+
+### Frontend Access Control
+
+Gate UI components by role to prevent accidental exposure of admin/manufacturer-only features:
+
+```typescript
+// hooks/useRole.ts
+export function useRole(): ParticipantRole | null {
+  const { participant } = useParticipant();
+  return participant?.role ?? null;
+}
+
+// components/ManufacturerOnly.tsx
+export const ManufacturerOnly: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const role = useRole();
+  if (role !== ParticipantRole.Manufacturer) return null;
+  return <>{children}</>;
+};
+
+// Usage
+<ManufacturerOnly>
+  <CreateIncentiveForm />
+</ManufacturerOnly>
+```
+
+> **Important:** Frontend role checks are UX-only. The contract enforces all real access control. Never rely solely on frontend guards.
+
+### Access Control Anti-Patterns to Avoid
+
+```rust
+// ❌ Checking address string equality (fragile, case-sensitive)
+if caller.to_string() == "GABC..." { /* admin action */ }
+
+// ✅ Use proper admin list lookup
+require_admin(&env, &caller);
+
+// ❌ Skipping auth on "read-only" mutating paths
+pub fn reset_waste_confirmation(env: Env, waste_id: u64, owner: Address) {
+    // Missing: owner.require_auth()
+    // ...
+}
+
+// ✅ Always require_auth on every state mutation, even resets
+pub fn reset_waste_confirmation(env: Env, waste_id: u64, owner: Address) {
+    owner.require_auth();
+    // ...
+}
+
+// ❌ Role check after state mutation
+pub fn create_incentive(env: Env, rewarder: Address, ...) {
+    store_incentive(&env, ...);  // State mutated before auth check!
+    rewarder.require_auth();
+}
+
+// ✅ Always authenticate and authorize before any state mutation
+pub fn create_incentive(env: Env, rewarder: Address, ...) {
+    rewarder.require_auth();
+    let participant = get_participant(&env, &rewarder).ok_or(Error::NotRegistered)?;
+    if participant.role != ParticipantRole::Manufacturer {
+        return Err(Error::UnauthorizedRole);
+    }
+    store_incentive(&env, ...);
+}
+```
+
+---
+
 ## Security Checklist
 
 ### Development

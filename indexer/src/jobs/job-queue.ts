@@ -16,7 +16,7 @@ export enum JobStatus {
 export interface Job {
   id: string;
   type: string;
-  data: any;
+  data: unknown;
   priority: JobPriority;
   status: JobStatus;
   attempts: number;
@@ -49,9 +49,14 @@ export class JobQueue {
     this.processors.set(jobType, processor);
   }
 
+  /** Returns the set of job types that have a registered processor. */
+  getRegisteredJobTypes(): string[] {
+    return Array.from(this.processors.keys());
+  }
+
   async enqueue(
     type: string,
-    data: any,
+    data: unknown,
     priority: JobPriority = JobPriority.NORMAL,
     maxAttempts: number = 3
   ): Promise<string> {
@@ -70,9 +75,9 @@ export class JobQueue {
     return new Promise((resolve, reject) => {
       const score = priority * 1000000 + Date.now();
       this.client.zadd(`queue:${type}`, score, JSON.stringify(job), (err) => {
-        if (err) reject(err);
+        if (err) {reject(err);}
         this.client.hset(`job:${id}`, 'data', JSON.stringify(job), (err) => {
-          if (err) reject(err);
+          if (err) {reject(err);}
           resolve(id);
         });
       });
@@ -81,7 +86,7 @@ export class JobQueue {
 
   async schedule(
     type: string,
-    data: any,
+    data: unknown,
     cronExpression: string,
     priority: JobPriority = JobPriority.NORMAL
   ): Promise<string> {
@@ -100,14 +105,14 @@ export class JobQueue {
 
     return new Promise((resolve, reject) => {
       this.client.hset(`scheduled:${type}`, id, JSON.stringify(job), (err) => {
-        if (err) reject(err);
+        if (err) {reject(err);}
         resolve(id);
       });
     });
   }
 
   async process(): Promise<void> {
-    if (this.processing) return;
+    if (this.processing) {return;}
     this.processing = true;
 
     try {
@@ -175,7 +180,7 @@ export class JobQueue {
   async getJob(jobId: string): Promise<Job | null> {
     return new Promise((resolve, reject) => {
       this.client.hget(`job:${jobId}`, 'data', (err, data) => {
-        if (err) reject(err);
+        if (err) {reject(err);}
         resolve(data ? JSON.parse(data) : null);
       });
     });
@@ -184,7 +189,7 @@ export class JobQueue {
   async getQueueStats(jobType: string): Promise<{ pending: number; processing: number }> {
     return new Promise((resolve, reject) => {
       this.client.zcard(`queue:${jobType}`, (err, count) => {
-        if (err) reject(err);
+        if (err) {reject(err);}
         resolve({
           pending: count || 0,
           processing: 0,

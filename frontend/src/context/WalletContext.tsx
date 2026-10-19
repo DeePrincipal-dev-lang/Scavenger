@@ -1,73 +1,64 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { isConnected, requestAccess, getPublicKey, isBrowser } from '@stellar/freighter-api';
+/**
+ * context/WalletContext.tsx
+ *
+ * WalletProvider performs the initial Freighter detection and writes the
+ * result into the wallet store slice. useWallet lives in features/wallet and
+ * is re-exported here so existing imports keep working.
+ *
+ * Freighter calls go through features/wallet/service.
+ */
+import React, { useEffect, type ReactNode } from 'react'
+import { useWalletStore } from '@/store'
+import {
+  checkWalletInstalled,
+  getWalletPublicKey,
+  isWalletEnvironment,
+  watchWalletAccount,
+} from '@/features/wallet/service'
 
-interface WalletContextType {
-  address: string | null;
-  isConnected: boolean;
-  isInstalled: boolean;
-  connect: () => Promise<void>;
-  disconnect: () => void;
-  isLoading: boolean;
-  error: string | null;
-}
+export { useWallet } from '@/features/wallet/useWallet'
+export type { WalletContextType } from '@/features/wallet/useWallet'
 
-const WalletContext = createContext<WalletContextType | undefined>(undefined)
-
+/**
+ * WalletProvider — detects the Freighter extension and restores an existing
+ * connection into the wallet store slice.
+ */
 export const WalletProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [address, setAddress] = useState<string | null>(localStorage.getItem('wallet_address'));
-  const [isInstalled, setIsInstalled] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { state, dispatch } = useWalletStore()
+  const { address, isConnected } = state
 
   useEffect(() => {
-    (async () => {
-      if (!isBrowser) return setLoading(false);
+    if (!isWalletEnvironment()) {
+      dispatch({ type: 'WALLET_READY' })
+      return
+    }
+    ;(async () => {
       try {
-        const connected = await isConnected();
-        setIsInstalled(true);
-        if (connected) {
-          const addr = await getPublicKey();
-          if (addr) { setAddress(addr); localStorage.setItem('wallet_address', addr); }
+        const isInstalled = await checkWalletInstalled()
+        dispatch({ type: 'WALLET_INSTALLED', payload: isInstalled })
+        if (isInstalled) {
+          const addr = await getWalletPublicKey()
+          if (addr) dispatch({ type: 'WALLET_CONNECTED', payload: addr })
+          else dispatch({ type: 'WALLET_READY' })
+        } else {
+          dispatch({ type: 'WALLET_READY' })
         }
       } catch {
-        setIsInstalled(false);
-      } finally {
-        setLoading(false);
+        dispatch({ type: 'WALLET_INSTALLED', payload: false })
+        dispatch({ type: 'WALLET_READY' })
       }
-    })();
-  }, []);
+    })()
+  }, [dispatch])
 
-  const connect = async () => {
-    setError(null);
-    if (!isInstalled) {
-      setError('Freighter extension is not installed. Please install it from freighter.app.');
-      return;
-    }
-    setLoading(true);
-    try {
-      const addr = await requestAccess();
-      setAddress(addr);
-      localStorage.setItem('wallet_address', addr);
-    } catch (err: unknown) {
-      const msg = (err instanceof Error ? err.message : String(err)) ?? '';
-      setError(msg.includes('User declined') ? 'Connection rejected.' : 'Failed to connect wallet.');
-    } finally {
-      setLoading(false)
-    }
-  }
+  // One account watcher for the whole app, started only while connected.
+  // Follows account switches and lock/unlock.
+  useEffect(() => {
+    if (!isConnected) return
+    return watchWalletAccount((next) => {
+      if (!next) dispatch({ type: 'WALLET_DISCONNECTED' })
+      else if (next !== address) dispatch({ type: 'WALLET_CONNECTED', payload: next })
+    })
+  }, [isConnected, address, dispatch])
 
-  const disconnect = () => { setAddress(null); localStorage.removeItem('wallet_address'); };
-
-  return (
-    <WalletContext.Provider value={{ address, isConnected: !!address, isInstalled, connect, disconnect, isLoading: loading, error }}>
-      {children}
-    </WalletContext.Provider>
-  )
+  return <>{children}</>
 }
-
-// eslint-disable-next-line react-refresh/only-export-components
-export const useWallet = () => {
-  const ctx = useContext(WalletContext);
-  if (!ctx) throw new Error('useWallet must be used within a WalletProvider');
-  return ctx;
-};

@@ -19,14 +19,24 @@ import {
   ShoppingBag,
   Award,
   BookOpen,
+  CalendarDays,
+  Heart,
+  TrendingUp,
+  Trophy,
+  WifiOff,
+  Bell,
+  Upload,
 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { useWallet } from '@/context/WalletContext'
 import { useAuth } from '@/context/AuthContext'
 import { Button } from '@/components/ui/Button'
+import { NotificationBell } from '@/components/ui/NotificationBell'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
 import { SearchBar } from '@/components/ui/SearchBar'
-import { OfflineIndicator } from '@/components/OfflineIndicator'
+import { OfflineStatus } from '@/components/OfflineStatus'
 import { OnboardingTutorial, useOnboardingTutorial } from '@/components/OnboardingTutorial'
+import { UserRole } from '@/hooks/useOnboarding'
 
 const NAV_LINKS = [
   {
@@ -92,6 +102,48 @@ const NAV_LINKS = [
     href: '/recycling-guide',
     roles: ['Recycler', 'Collector', 'Manufacturer'],
     icon: BookOpen
+  },
+  {
+    label: 'Subscriptions',
+    href: '/subscriptions',
+    roles: ['Recycler', 'Collector', 'Manufacturer'],
+    icon: CalendarDays
+  },
+  {
+    label: 'Donations',
+    href: '/donations',
+    roles: ['Recycler', 'Collector', 'Manufacturer'],
+    icon: Heart
+  },
+  {
+    label: 'Predictions',
+    href: '/predictions',
+    roles: ['Recycler', 'Collector', 'Manufacturer'],
+    icon: TrendingUp
+  },
+  {
+    label: 'Achievements',
+    href: '/achievements',
+    roles: ['Recycler', 'Collector', 'Manufacturer'],
+    icon: Trophy
+  },
+  {
+    label: 'Notifications',
+    href: '/notifications',
+    roles: ['Recycler', 'Collector', 'Manufacturer'],
+    icon: Bell
+  },
+  {
+    label: 'Batch Upload',
+    href: '/batch-upload',
+    roles: ['Recycler', 'Collector'],
+    icon: Upload
+  },
+  {
+    label: 'Offline',
+    href: '/offline',
+    roles: ['Recycler', 'Collector', 'Manufacturer'],
+    icon: WifiOff
   }
 ]
 
@@ -115,47 +167,61 @@ function getOnboardingDataAttribute(href: string): string | undefined {
     '/marketplace': 'marketplace',
     '/certifications': 'certifications',
     '/recycling-guide': 'recycling-guide',
+    '/subscriptions': 'subscriptions',
+    '/donations': 'donations',
+    '/predictions': 'predictions',
+    '/achievements': 'achievements',
+    '/notifications': 'notifications',
+    '/batch-upload': 'batch-upload',
+    '/offline': 'offline',
   }
   return attributeMap[href]
 }
 
 export function AppShell({ children }: PropsWithChildren) {
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const { address, isConnected, connect, isLoading } = useWallet()
   const { address, isConnected, connect, disconnect, isLoading } = useWallet()
   const { user, logout } = useAuth()
-  const { isVisible, hideTutorial } = useOnboardingTutorial(user?.role as any)
+  const { isVisible, hideTutorial } = useOnboardingTutorial((user?.role as UserRole | undefined) ?? null)
 
   const role = user?.role ?? ''
   const links = NAV_LINKS.filter((l) => !role || l.roles.includes(role))
 
   const Sidebar = (
-    <nav className="flex flex-col gap-1 p-4" data-onboarding="sidebar">
+    <nav className="flex flex-col gap-1 p-4" data-onboarding="sidebar" aria-label="Main navigation">
       <div className="mb-4 flex items-center gap-2 px-2">
-        <Recycle className="h-6 w-6 text-primary" />
+        <Recycle className="h-6 w-6 text-primary" aria-hidden="true" />
         <span className="text-lg font-bold">Scavngr</span>
       </div>
-      {links.map((link) => (
-        <NavLink
-          key={link.href}
-          to={link.href}
-          data-onboarding={getOnboardingDataAttribute(link.href)}
-          className={({ isActive }) =>
-            cn(
-              'flex min-h-11 items-center rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground',
-              isActive ? 'bg-accent text-accent-foreground' : 'text-foreground'
-            )
-          }
-        >
-          {link.label}
-        </NavLink>
-      ))}
+      {links.map((link) => {
+        const Icon = link.icon
+        return (
+          <NavLink
+            key={link.href}
+            to={link.href}
+            data-onboarding={getOnboardingDataAttribute(link.href)}
+            className={({ isActive }) =>
+              cn(
+                'flex min-h-11 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground',
+                isActive ? 'bg-accent text-accent-foreground' : 'text-foreground'
+              )
+            }
+          >
+            <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+            {link.label}
+          </NavLink>
+        )
+      })}
       {user && (
         <button
           onClick={() => {
             logout()
           }}
+          aria-label="Sign out"
           className="mt-auto flex min-h-11 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-destructive transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
-          <LogOut className="h-4 w-4" />
+          <LogOut className="h-4 w-4" aria-hidden="true" />
           Sign out
         </button>
       )}
@@ -164,6 +230,14 @@ export function AppShell({ children }: PropsWithChildren) {
 
   return (
     <div className="flex min-h-screen bg-background text-foreground">
+      {/* Skip to main content link for keyboard users */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:ring-2 focus:ring-ring"
+      >
+        Skip to main content
+      </a>
+
       {/* Desktop sidebar */}
       <aside className="hidden w-56 shrink-0 border-r md:flex md:flex-col">{Sidebar}</aside>
 
@@ -183,27 +257,30 @@ export function AppShell({ children }: PropsWithChildren) {
             {isConnected && address ? (
               <div className="flex items-center gap-2">
                 <span className="hidden items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium sm:flex">
-                  <Wallet className="h-3.5 w-3.5 text-primary" />
-                  {truncate(address)}
+                  <Wallet className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+                  <span aria-label={`Connected wallet: ${address}`}>{truncate(address)}</span>
                 </span>
-                <Button variant="ghost" size="sm" onClick={disconnect}>
+                <Button variant="ghost" size="sm" onClick={disconnect} aria-label="Disconnect wallet">
                   Disconnect
                 </Button>
               </div>
             ) : (
-              <Button size="sm" onClick={connect} disabled={isLoading}>
+              <Button size="sm" onClick={connect} disabled={isLoading} aria-label="Connect wallet">
                 {isLoading ? 'Connecting…' : 'Connect Wallet'}
               </Button>
             )}
           </div>
         </header>
 
-        <OfflineIndicator />
-        <main className={cn('flex-1 overflow-x-hidden p-4 pb-20 sm:p-6 sm:pb-6')}>{children}</main>
+        <OfflineStatus variant="indicator" />
+        <main id="main-content" className={cn('flex-1 overflow-x-hidden p-4 pb-20 sm:p-6 sm:pb-6')}>{children}</main>
       </div>
 
       {/* Mobile bottom navigation */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:hidden">
+      <nav
+        className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:hidden"
+        aria-label="Mobile navigation"
+      >
         <div className="flex min-h-16 items-center justify-around gap-1 px-2 py-1">
           {links.filter((l) => l.href !== '/profile').slice(0, 4).map((link) => {
             const Icon = link.icon
@@ -218,7 +295,7 @@ export function AppShell({ children }: PropsWithChildren) {
                   )
                 }
               >
-                <Icon className="mb-0.5 h-5 w-5" />
+                <Icon className="mb-0.5 h-5 w-5" aria-hidden="true" />
                 <span className="truncate">{link.label}</span>
               </NavLink>
             )
@@ -232,7 +309,7 @@ export function AppShell({ children }: PropsWithChildren) {
               )
             }
           >
-            <User className="mb-0.5 h-5 w-5" />
+            <User className="mb-0.5 h-5 w-5" aria-hidden="true" />
             <span className="truncate">Profile</span>
           </NavLink>
         </div>
@@ -240,7 +317,7 @@ export function AppShell({ children }: PropsWithChildren) {
 
       {/* Onboarding Tutorial */}
       <OnboardingTutorial
-        userRole={user?.role as any}
+        userRole={(user?.role as UserRole | undefined) ?? null}
         isVisible={isVisible}
         onComplete={hideTutorial}
       />

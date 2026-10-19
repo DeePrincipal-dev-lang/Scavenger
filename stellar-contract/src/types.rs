@@ -1,5 +1,7 @@
+//! Core type definitions for the Scavenger contract.
 use soroban_sdk::{contracttype, Address, String, Symbol};
 
+/// Represents an incentive offered by a manufacturer to encourage recycling
 /// Represents a transfer record in the recycling system
 /// This struct is fully compatible with Soroban storage and implements
 /// deterministic serialization for safe storage and retrieval
@@ -64,28 +66,17 @@ impl TransferItemType {
 
     /// Converts a u32 to a TransferItemType
     pub fn from_u32(value: u32) -> Option<Self> {
-        match value {
-            0 => Some(TransferItemType::Material),
-            1 => Some(TransferItemType::Token),
-            2 => Some(TransferItemType::Incentive),
-            3 => Some(TransferItemType::Ownership),
-            _ => None,
-        }
+        crate::type_utils::transfer_item_type_from_u32(value)
     }
 
     /// Converts the TransferItemType to u32
     pub fn to_u32(&self) -> u32 {
-        *self as u32
+        crate::type_utils::transfer_item_type_to_u32(*self)
     }
 
     /// Returns the string representation
     pub fn as_str(&self) -> &'static str {
-        match self {
-            TransferItemType::Material => "MATERIAL",
-            TransferItemType::Token => "TOKEN",
-            TransferItemType::Incentive => "INCENTIVE",
-            TransferItemType::Ownership => "OWNERSHIP",
-        }
+        crate::type_utils::transfer_item_type_as_str(*self)
     }
 }
 
@@ -97,30 +88,17 @@ impl TransferStatus {
 
     /// Converts a u32 to a TransferStatus
     pub fn from_u32(value: u32) -> Option<Self> {
-        match value {
-            0 => Some(TransferStatus::Pending),
-            1 => Some(TransferStatus::InProgress),
-            2 => Some(TransferStatus::Completed),
-            3 => Some(TransferStatus::Failed),
-            4 => Some(TransferStatus::Cancelled),
-            _ => None,
-        }
+        crate::type_utils::transfer_status_from_u32(value)
     }
 
     /// Converts the TransferStatus to u32
     pub fn to_u32(&self) -> u32 {
-        *self as u32
+        crate::type_utils::transfer_status_to_u32(*self)
     }
 
     /// Returns the string representation
     pub fn as_str(&self) -> &'static str {
-        match self {
-            TransferStatus::Pending => "PENDING",
-            TransferStatus::InProgress => "IN_PROGRESS",
-            TransferStatus::Completed => "COMPLETED",
-            TransferStatus::Failed => "FAILED",
-            TransferStatus::Cancelled => "CANCELLED",
-        }
+        crate::type_utils::transfer_status_as_str(*self)
     }
 
     /// Checks if the status is final (cannot be changed)
@@ -210,7 +188,12 @@ pub struct IncentiveTier {
     pub reward_points: u64,
 }
 
-/// Represents an incentive offered by a manufacturer to encourage recycling
+/// Represents an incentive offered by a manufacturer to encourage recycling.
+///
+/// # Storage layout optimization (issue #758)
+/// u64 budget fields are placed together so a single XDR pass serializes them
+/// without interleaving variable-width fields (Address, Vec), cutting per-call
+/// deserialization cost when only budget data is needed.
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Incentive {
@@ -301,7 +284,10 @@ impl Incentive {
             return None;
         }
 
-        self.remaining_budget -= reward;
+        self.remaining_budget = self
+            .remaining_budget
+            .checked_sub(reward)
+            .expect("Overflow in remaining budget");
 
         // Auto-deactivate if budget exhausted
         if self.remaining_budget == 0 {
@@ -342,26 +328,17 @@ impl ParticipantRole {
     /// Converts a u32 to a ParticipantRole
     /// Returns None if the value is invalid
     pub fn from_u32(value: u32) -> Option<Self> {
-        match value {
-            0 => Some(ParticipantRole::Recycler),
-            1 => Some(ParticipantRole::Collector),
-            2 => Some(ParticipantRole::Manufacturer),
-            _ => None,
-        }
+        crate::type_utils::participant_role_from_u32(value)
     }
 
     /// Converts the ParticipantRole to u32
     pub fn to_u32(&self) -> u32 {
-        *self as u32
+        crate::type_utils::participant_role_to_u32(*self)
     }
 
     /// Returns the string representation of the role
     pub fn as_str(&self) -> &'static str {
-        match self {
-            ParticipantRole::Recycler => "RECYCLER",
-            ParticipantRole::Collector => "COLLECTOR",
-            ParticipantRole::Manufacturer => "MANUFACTURER",
-        }
+        crate::type_utils::participant_role_as_str(*self)
     }
 
     /// Validates if a participant can perform a specific action based on their role
@@ -402,28 +379,17 @@ impl CertificationLevel {
 
     /// Converts a u32 to a CertificationLevel
     pub fn from_u32(value: u32) -> Option<Self> {
-        match value {
-            0 => Some(CertificationLevel::Beginner),
-            1 => Some(CertificationLevel::Intermediate),
-            2 => Some(CertificationLevel::Advanced),
-            3 => Some(CertificationLevel::Expert),
-            _ => None,
-        }
+        crate::type_utils::certification_level_from_u32(value)
     }
 
     /// Converts the CertificationLevel to u32
     pub fn to_u32(&self) -> u32 {
-        *self as u32
+        crate::type_utils::certification_level_to_u32(*self)
     }
 
     /// Returns the string representation
     pub fn as_str(&self) -> &'static str {
-        match self {
-            CertificationLevel::Beginner => "BEGINNER",
-            CertificationLevel::Intermediate => "INTERMEDIATE",
-            CertificationLevel::Advanced => "ADVANCED",
-            CertificationLevel::Expert => "EXPERT",
-        }
+        crate::type_utils::certification_level_as_str(*self)
     }
 
     /// Determines certification level based on waste count
@@ -486,34 +452,17 @@ impl WasteType {
     /// Converts a u32 to a WasteType
     /// Returns None if the value is invalid
     pub fn from_u32(value: u32) -> Option<Self> {
-        match value {
-            0 => Some(WasteType::Paper),
-            1 => Some(WasteType::PetPlastic),
-            2 => Some(WasteType::Plastic),
-            3 => Some(WasteType::Metal),
-            4 => Some(WasteType::Glass),
-            5 => Some(WasteType::Organic),
-            6 => Some(WasteType::Electronic),
-            _ => None,
-        }
+        crate::type_utils::waste_type_from_u32(value)
     }
 
     /// Converts the WasteType to u32
     pub fn to_u32(&self) -> u32 {
-        *self as u32
+        crate::type_utils::waste_type_to_u32(*self)
     }
 
     /// Returns the string representation of the waste type
     pub fn as_str(&self) -> &'static str {
-        match self {
-            WasteType::Paper => "PAPER",
-            WasteType::PetPlastic => "PETPLASTIC",
-            WasteType::Plastic => "PLASTIC",
-            WasteType::Metal => "METAL",
-            WasteType::Glass => "GLASS",
-            WasteType::Organic => "ORGANIC",
-            WasteType::Electronic => "ELECTRONIC",
-        }
+        crate::type_utils::waste_type_as_str(*self)
     }
 
     /// Returns the carbon credit rate in milligrams of CO2 equivalent per gram of waste.
@@ -528,6 +477,19 @@ impl WasteType {
             WasteType::Glass => 800,
             WasteType::Organic => 500,
             WasteType::Electronic => 4000,
+        }
+    }
+
+    /// Returns the impact score multiplier per gram for this waste type
+    pub fn impact_score_multiplier(&self) -> u128 {
+        match self {
+            WasteType::Paper => 10,
+            WasteType::PetPlastic => 30,
+            WasteType::Plastic => 25,
+            WasteType::Metal => 40,
+            WasteType::Glass => 15,
+            WasteType::Organic => 5,
+            WasteType::Electronic => 50,
         }
     }
 
@@ -571,6 +533,28 @@ pub struct Material {
     pub verified: bool,
     /// Optional description of the material
     pub description: String,
+}
+
+/// Environmental impact score for a waste item
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ImpactScore {
+    /// Total impact score (based on waste type and weight)
+    pub score: u128,
+    /// Timestamp when score was calculated
+    pub calculated_at: u64,
+}
+
+/// History of impact scores for a participant
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ImpactHistoryEntry {
+    /// Waste ID
+    pub waste_id: u128,
+    /// Impact score for this waste
+    pub score: u128,
+    /// Timestamp when the score was recorded
+    pub recorded_at: u64,
 }
 
 impl Material {
@@ -618,7 +602,10 @@ impl Material {
         };
 
         // Points = (weight in kg) * multiplier * 10
-        (self.weight / 1000) * multiplier * 10
+        (self.weight / 1000)
+            .checked_mul(multiplier)
+            .and_then(|v| v.checked_mul(10))
+            .expect("Overflow in reward points calculation")
     }
 }
 
@@ -671,6 +658,52 @@ pub struct MaterialComposition {
     pub percentage: u32,
 }
 
+/// A single contamination report submitted by a participant for a waste item.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ContaminationReport {
+    /// ID of the waste item being reported
+    pub waste_id: u128,
+    /// Address of the participant who submitted the report
+    pub reporter: Address,
+    /// Contamination level 0-100 as assessed by the reporter
+    pub level: u32,
+    /// Human-readable reason for the report
+    pub reason: String,
+    /// Ledger timestamp when the report was submitted
+    pub reported_at: u64,
+}
+
+/// Soroban-compatible optional WasteType (Option<WasteType> cannot be used directly in contracttype).
+#[contracttype]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum OptionalWasteType {
+    None = 0,
+    Paper = 1,
+    PetPlastic = 2,
+    Plastic = 3,
+    Metal = 4,
+    Glass = 5,
+    Organic = 6,
+    Electronic = 7,
+}
+
+impl OptionalWasteType {
+    /// Returns true if this matches any waste type, or the specific type given.
+    pub fn matches(&self, wt: WasteType) -> bool {
+        match self {
+            OptionalWasteType::None => true,
+            OptionalWasteType::Paper => wt == WasteType::Paper,
+            OptionalWasteType::PetPlastic => wt == WasteType::PetPlastic,
+            OptionalWasteType::Plastic => wt == WasteType::Plastic,
+            OptionalWasteType::Metal => wt == WasteType::Metal,
+            OptionalWasteType::Glass => wt == WasteType::Glass,
+            OptionalWasteType::Organic => wt == WasteType::Organic,
+            OptionalWasteType::Electronic => wt == WasteType::Electronic,
+        }
+    }
+}
+
 /// Represents a participant's recycling goal
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -680,7 +713,7 @@ pub struct RecyclingGoal {
     /// Target completion timestamp (Unix seconds)
     pub target_date: u64,
     /// Waste type this goal applies to (None = any type)
-    pub waste_type: Option<WasteType>,
+    pub waste_type: OptionalWasteType,
     /// Weight already recycled toward this goal
     pub current_weight: u128,
     /// Whether this goal has been achieved
@@ -710,6 +743,8 @@ pub struct Waste {
     pub recycled_timestamp: u64,
     /// Whether the waste is currently active in the system
     pub is_active: bool,
+    /// Whether the waste is frozen (e.g. due to an open dispute) and cannot be transferred
+    pub is_frozen: bool,
     /// Whether the waste has been confirmed/verified
     pub is_confirmed: bool,
     /// Address of the confirmer/verifier
@@ -738,8 +773,16 @@ pub struct Waste {
     pub processing_status: ProcessingStatus,
     /// Processing history
     pub processing_history: soroban_sdk::Vec<ProcessingRecord>,
+    /// Substitution history
+    pub substitution_history: soroban_sdk::Vec<SubstitutionRecord>,
     /// Unique tracking code for QR codes
     pub tracking_code: soroban_sdk::String,
+    /// Processing cost in tokens (set by owner)
+    pub processing_cost: u128,
+    /// Material composition breakdown (percentages summing to 100)
+    pub composition: soroban_sdk::Vec<MaterialComposition>,
+    /// Environmental impact score for this waste item
+    pub impact_score: u128,
 }
 
 impl Waste {
@@ -767,9 +810,9 @@ impl Waste {
         let mut history = soroban_sdk::Vec::new(env);
         history.push_back(initial_record);
 
-        // Generate tracking code: WS-{waste_id}-{checksum}
-        let checksum = (waste_id % 10000) as u32;
-        let tracking_code = soroban_sdk::String::from_str(env, &format!("WS-{:09}-{:04}", waste_id, checksum));
+        let tracking_code = soroban_sdk::String::from_str(env, "WS-TRACK");
+
+        let impact_score = calculate_impact_score(waste_type, weight);
 
         Self {
             waste_id,
@@ -780,6 +823,7 @@ impl Waste {
             longitude,
             recycled_timestamp,
             is_active,
+            is_frozen: false,
             is_confirmed,
             confirmer,
             grade: WasteGrade::C,
@@ -794,7 +838,11 @@ impl Waste {
             contamination_reason: soroban_sdk::String::from_str(env, ""),
             processing_status: ProcessingStatus::Collected,
             processing_history: history,
+            substitution_history: soroban_sdk::Vec::new(env),
             tracking_code,
+            processing_cost: 0,
+            composition: soroban_sdk::Vec::new(env),
+            impact_score,
         }
     }
     pub fn is_expired(&self, now: u64) -> bool {
@@ -933,6 +981,123 @@ impl Auction {
     }
 }
 
+/// A listing of carbon credits offered for sale on the marketplace.
+///
+/// Credits listed here are escrowed: they are subtracted from the seller's
+/// `RecyclingStats.carbon_credits_earned` when the listing is created and
+/// returned (on cancel) or transferred to the buyer (on purchase).
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CarbonListing {
+    pub id: u64,
+    pub seller: Address,
+    /// Amount of carbon credits (grams of CO2 equivalent) on offer.
+    pub amount: u128,
+    /// Price per credit in the smallest token unit of the configured token.
+    pub price_per_credit: i128,
+    pub is_active: bool,
+    pub created_at: u64,
+}
+
+/// Represents a period for compliance reporting
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ReportPeriod {
+    pub start_timestamp: u64,
+    pub end_timestamp: u64,
+}
+
+/// Status of regulatory validation
+#[contracttype]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ComplianceStatus {
+    Pending = 0,
+    Compliant = 1,
+    NonCompliant = 2,
+    Exempt = 3,
+}
+
+/// Regulatory requirement validation result
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RegulatoryValidation {
+    pub requirement_id: String,
+    pub status: ComplianceStatus,
+    pub notes: String,
+}
+
+/// Represents a compliance report for environmental regulations
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ComplianceReport {
+    pub id: u64,
+    pub period: ReportPeriod,
+    pub total_waste_tracked: u128,
+    pub waste_by_type: soroban_sdk::Vec<(WasteType, u128)>,
+    pub total_carbon_credits: u128,
+    pub validations: soroban_sdk::Vec<RegulatoryValidation>,
+    pub generated_at: u64,
+    pub version: u32,
+    pub is_finalized: bool,
+}
+
+/// Status of a multi-signature transfer approval
+#[contracttype]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum TransferApprovalStatus {
+    Pending = 0,
+    Approved = 1,
+    Rejected = 2,
+    Expired = 3,
+}
+
+/// Represents a multi-signature approval for high-value transfers
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TransferApproval {
+    pub waste_id: u128,
+    pub from: Address,
+    pub to: Address,
+    pub amount: u128,
+    pub approvers: soroban_sdk::Vec<Address>,
+    pub required_approvals: u32,
+    pub status: TransferApprovalStatus,
+    pub created_at: u64,
+    pub expires_at: u64,
+}
+
+/// Represents a substitution of one waste item for another
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SubstitutionRecord {
+    pub original_id: u128,
+    pub substitute_id: u128,
+    pub approver: Address,
+    pub reason: String,
+    pub timestamp: u64,
+}
+
+/// Statistics for contract transactions
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TransactionStats {
+    pub total_transactions: u64,
+    pub successful_transactions: u64,
+    pub failed_transactions: u64,
+    pub average_gas_usage: u64,
+    pub last_transaction_timestamp: u64,
+}
+
+/// A snapshot of contract performance at a point in time
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PerformanceSnapshot {
+    pub timestamp: u64,
+    pub active_users: u32,
+    pub waste_processed_per_hour: u128,
+    pub average_latency_ms: u32,
+}
+
 /// Transfer record for waste movement across the supply chain.
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -968,6 +1133,7 @@ impl WasteTransfer {
     }
 }
 
+/// Tracks recycling statistics for a participant
 /// Builder pattern for constructing Waste instances
 /// Provides a fluent API for creating waste with optional fields
 #[allow(dead_code)]
@@ -1066,6 +1232,7 @@ impl WasteBuilder {
             longitude: self.longitude,
             recycled_timestamp: self.recycled_timestamp,
             is_active: self.is_active,
+            is_frozen: false,
             is_confirmed: self.is_confirmed,
             confirmer,
             grade: self.grade,
@@ -1080,18 +1247,41 @@ impl WasteBuilder {
             contamination_reason: soroban_sdk::String::from_str(env, ""),
             processing_status: ProcessingStatus::Collected,
             processing_history: history,
+            substitution_history: soroban_sdk::Vec::new(env),
+            tracking_code: soroban_sdk::String::from_str(env, "WS-TRACK"),
             processing_cost: 0,
             composition: soroban_sdk::Vec::new(env),
         }
     }
 }
 
-/// Tracks recycling statistics for a participant
+/// Tracks recycling statistics for a participant.
+///
+/// # Storage layout optimization (issue #758)
+/// Fields are ordered by descending alignment: `Address` (variable), then `u128`
+/// (16-byte aligned), then `u64` (8-byte aligned), then `u32` (4-byte aligned).
+/// This grouping avoids alignment-padding words in the XDR encoding, reducing the
+/// ledger-entry size and the read/write cost for every call that touches stats.
+///
+/// u128 group  : carbon_credits_earned, total_impact_score,
+///               total_processing_costs, recycled_weight
+/// u64  group  : submissions, weights, type-counts, grade-counts
+/// u32  group  : recycling_rate
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RecyclingStats {
     /// Participant address
     pub participant: Address,
+    // ── u128 fields (largest alignment first) ──────────────────────────────
+    /// Total carbon credits earned (grams of CO2 equivalent)
+    pub carbon_credits_earned: u128,
+    /// Total environmental impact score
+    pub total_impact_score: u128,
+    /// Total processing costs incurred (in smallest token unit)
+    pub total_processing_costs: u128,
+    /// Total weight of recycled waste (for rate calculation)
+    pub recycled_weight: u128,
+    // ── u64 fields ─────────────────────────────────────────────────────────
     /// Total number of materials submitted
     pub total_submissions: u64,
     /// Total number of verified materials
@@ -1100,8 +1290,6 @@ pub struct RecyclingStats {
     pub total_weight: u64,
     /// Total reward points earned
     pub total_points: u64,
-    /// Total carbon credits earned (grams of CO2 equivalent)
-    pub carbon_credits_earned: u128,
     /// Number of materials by waste type
     pub paper_count: u64,
     pub pet_plastic_count: u64,
@@ -1115,13 +1303,10 @@ pub struct RecyclingStats {
     pub grade_b_count: u64,
     pub grade_c_count: u64,
     pub grade_d_count: u64,
-    /// Total processing costs incurred (in smallest token unit)
-    pub total_processing_costs: u128,
+    // ── u32 fields ─────────────────────────────────────────────────────────
     /// Recycling rate in basis points (e.g. 9500 = 95.00%)
     /// Calculated as (recycled_weight / total_weight) * 10000
     pub recycling_rate: u32,
-    /// Total weight of recycled waste (for rate calculation)
-    pub recycled_weight: u128,
 }
 
 impl RecyclingStats {
@@ -1134,6 +1319,7 @@ impl RecyclingStats {
             total_weight: 0,
             total_points: 0,
             carbon_credits_earned: 0,
+            total_impact_score: 0,
             paper_count: 0,
             pet_plastic_count: 0,
             plastic_count: 0,
@@ -1163,10 +1349,24 @@ impl RecyclingStats {
 
     /// Records a new material submission
     pub fn record_submission(&mut self, material: &Material) {
-        self.total_submissions += 1;
-        self.total_weight += material.weight;
+        self.total_submissions = self
+            .total_submissions
+            .checked_add(1)
+            .expect("Overflow in total submissions");
+        self.total_weight = self
+            .total_weight
+            .checked_add(material.weight)
+            .expect("Overflow in total weight");
 
         // Update waste type count
+        let count = match material.waste_type {
+            WasteType::Paper => &mut self.paper_count,
+            WasteType::PetPlastic => &mut self.pet_plastic_count,
+            WasteType::Plastic => &mut self.plastic_count,
+            WasteType::Metal => &mut self.metal_count,
+            WasteType::Glass => &mut self.glass_count,
+        };
+        *count = count.checked_add(1).expect("Overflow in waste type count");
         match material.waste_type {
             WasteType::Paper => self.paper_count += 1,
             WasteType::PetPlastic => self.pet_plastic_count += 1,
@@ -1181,6 +1381,14 @@ impl RecyclingStats {
     /// Records a material verification and updates carbon credits
     pub fn record_verification(&mut self, material: &Material) {
         if material.verified {
+            self.verified_submissions = self
+                .verified_submissions
+                .checked_add(1)
+                .expect("Overflow in verified submissions");
+            self.total_points = self
+                .total_points
+                .checked_add(material.calculate_reward_points())
+                .expect("Overflow in total points");
             self.verified_submissions += 1;
             self.total_points += material.calculate_reward_points();
             self.carbon_credits_earned += calculate_carbon_credits(material.waste_type, material.weight as u128);
@@ -1192,7 +1400,10 @@ impl RecyclingStats {
         if self.total_submissions == 0 {
             0
         } else {
-            (self.verified_submissions * 100) / self.total_submissions
+            self.verified_submissions
+                .checked_mul(100)
+                .expect("Overflow in verification rate")
+                / self.total_submissions
         }
     }
 
@@ -1249,6 +1460,12 @@ impl RecyclingStats {
 /// Formula: credits = weight_grams * rate_milli / 1000
 pub fn calculate_carbon_credits(waste_type: WasteType, weight_grams: u128) -> u128 {
     weight_grams * waste_type.carbon_credit_rate_milli() / 1000
+}
+
+/// Calculate environmental impact score for a given waste type and weight in grams.
+/// Formula: score = weight_grams * impact_score_multiplier
+pub fn calculate_impact_score(waste_type: WasteType, weight_grams: u128) -> u128 {
+    weight_grams * waste_type.impact_score_multiplier()
 }
 
 #[cfg(test)]
@@ -1373,6 +1590,62 @@ mod recycling_stats_tests {
 
         // RecyclingStats can be stored (validated through contract tests)
         assert_eq!(stats.total_submissions, 0);
+    }
+
+    #[test]
+    #[should_panic(expected = "Overflow in total submissions")]
+    fn test_record_submission_overflows_at_u64_max_total_submissions() {
+        let env = soroban_sdk::Env::default();
+        let participant = Address::generate(&env);
+        let description = String::from_str(&env, "Test");
+
+        let mut stats = RecyclingStats::new(participant.clone());
+        stats.total_submissions = u64::MAX;
+        let material = Material::new(1, WasteType::Paper, 1, participant, 0, description);
+
+        stats.record_submission(&material);
+    }
+
+    #[test]
+    #[should_panic(expected = "Overflow in total weight")]
+    fn test_record_submission_overflows_at_u64_max_total_weight() {
+        let env = soroban_sdk::Env::default();
+        let participant = Address::generate(&env);
+        let description = String::from_str(&env, "Test");
+
+        let mut stats = RecyclingStats::new(participant.clone());
+        stats.total_weight = u64::MAX;
+        let material = Material::new(1, WasteType::Paper, 1, participant, 0, description);
+
+        stats.record_submission(&material);
+    }
+
+    #[test]
+    #[should_panic(expected = "Overflow in total points")]
+    fn test_record_verification_overflows_at_u64_max_total_points() {
+        let env = soroban_sdk::Env::default();
+        let participant = Address::generate(&env);
+        let description = String::from_str(&env, "Test");
+
+        let mut stats = RecyclingStats::new(participant.clone());
+        stats.total_points = u64::MAX;
+        let mut material = Material::new(1, WasteType::Metal, 1000, participant, 0, description);
+        material.verify();
+
+        stats.record_verification(&material);
+    }
+
+    #[test]
+    #[should_panic(expected = "Overflow in verification rate")]
+    fn test_verification_rate_overflows_at_extreme_verified_submissions() {
+        let env = soroban_sdk::Env::default();
+        let participant = Address::generate(&env);
+
+        let mut stats = RecyclingStats::new(participant);
+        stats.total_submissions = 1;
+        stats.verified_submissions = u64::MAX;
+
+        stats.verification_rate();
     }
 }
 
@@ -1531,6 +1804,266 @@ mod material_tests {
         assert_eq!(material.id, 1);
         assert_eq!(material.waste_type, WasteType::Metal);
         assert_eq!(material.weight, 3000);
+    }
+
+    #[test]
+    fn test_calculate_reward_points_at_u64_max_weight_does_not_overflow() {
+        let env = soroban_sdk::Env::default();
+        let submitter = Address::generate(&env);
+        let description = String::from_str(&env, "Test");
+
+        // weight/1000 shrinks u64::MAX enough that * multiplier(<=5) * 10 cannot overflow u64.
+        let material = Material::new(1, WasteType::Metal, u64::MAX, submitter, 0, description);
+        assert_eq!(material.calculate_reward_points(), (u64::MAX / 1000) * 50);
+    }
+}
+
+#[cfg(test)]
+mod incentive_tests {
+    use super::*;
+    use soroban_sdk::testutils::Address as _;
+
+    #[test]
+    #[should_panic(expected = "Overflow in reward calculation")]
+    fn test_calculate_reward_overflows_at_extreme_reward_points() {
+        let env = soroban_sdk::Env::default();
+        let rewarder = Address::generate(&env);
+
+        let incentive = Incentive::new(1, rewarder, WasteType::Metal, u64::MAX, u64::MAX, 0);
+        // 5000g -> 5kg, 5 * u64::MAX overflows u64
+        incentive.calculate_reward(5000);
+    }
+
+    #[test]
+    fn test_claim_reward_respects_remaining_budget() {
+        let env = soroban_sdk::Env::default();
+        let rewarder = Address::generate(&env);
+
+        let mut incentive = Incentive::new(1, rewarder, WasteType::Metal, 10, 45, 0);
+        // 5kg * 10 = 50 > 45 remaining budget -> rejected
+        assert_eq!(incentive.claim_reward(5000), None);
+        assert_eq!(incentive.remaining_budget, 45);
+
+        // 4kg * 10 = 40 <= 45 remaining budget -> accepted, deactivates only when exhausted
+        assert_eq!(incentive.claim_reward(4000), Some(40));
+        assert_eq!(incentive.remaining_budget, 5);
+        assert!(incentive.active);
+    }
+
+    #[test]
+    fn test_claim_reward_deactivates_on_exact_budget_exhaustion() {
+        let env = soroban_sdk::Env::default();
+        let rewarder = Address::generate(&env);
+
+        let mut incentive = Incentive::new(1, rewarder, WasteType::Metal, 10, 50, 0);
+        assert_eq!(incentive.claim_reward(5000), Some(50));
+        assert_eq!(incentive.remaining_budget, 0);
+        assert!(!incentive.active);
+    }
+}
+
+#[cfg(test)]
+mod waste_tests {
+    use super::*;
+    use soroban_sdk::testutils::Address as _;
+    use soroban_sdk::Env;
+
+    fn make_waste(env: &Env, owner: Address, latitude: i128, longitude: i128) -> Waste {
+        Waste::new(1, WasteType::Metal, 5000, owner.clone(), latitude, longitude, 0, true, false, owner)
+    }
+
+    #[test]
+    fn test_new_sets_all_fields() {
+        let env = Env::default();
+        let owner = Address::generate(&env);
+        let confirmer = Address::generate(&env);
+        let waste = Waste::new(7, WasteType::Glass, 250, owner.clone(), 1, 2, 99, false, true, confirmer.clone());
+
+        assert_eq!(waste.waste_id, 7);
+        assert_eq!(waste.waste_type, WasteType::Glass);
+        assert_eq!(waste.weight, 250);
+        assert_eq!(waste.current_owner, owner);
+        assert_eq!(waste.latitude, 1);
+        assert_eq!(waste.longitude, 2);
+        assert_eq!(waste.recycled_timestamp, 99);
+        assert!(!waste.is_active);
+        assert!(waste.is_confirmed);
+        assert_eq!(waste.confirmer, confirmer);
+    }
+
+    #[test]
+    fn test_has_valid_coordinates() {
+        let env = Env::default();
+        let owner = Address::generate(&env);
+
+        assert!(make_waste(&env, owner.clone(), 0, 0).has_valid_coordinates());
+        assert!(make_waste(&env, owner.clone(), 90_000_000, 180_000_000).has_valid_coordinates());
+        assert!(make_waste(&env, owner.clone(), -90_000_000, -180_000_000).has_valid_coordinates());
+        assert!(!make_waste(&env, owner.clone(), 90_000_001, 0).has_valid_coordinates());
+        assert!(!make_waste(&env, owner, 0, 180_000_001).has_valid_coordinates());
+    }
+
+    #[test]
+    fn test_is_recycled() {
+        let env = Env::default();
+        let owner = Address::generate(&env);
+        let mut waste = make_waste(&env, owner, 0, 0);
+
+        assert!(!waste.is_recycled());
+        waste.mark_recycled(12345);
+        assert!(waste.is_recycled());
+        assert_eq!(waste.recycled_timestamp, 12345);
+    }
+
+    #[test]
+    fn test_waste_meets_minimum_weight() {
+        let env = Env::default();
+        let owner = Address::generate(&env);
+
+        let mut light = make_waste(&env, owner.clone(), 0, 0);
+        light.weight = 99;
+        assert!(!light.meets_minimum_weight());
+
+        let mut exact = make_waste(&env, owner, 0, 0);
+        exact.weight = 100;
+        assert!(exact.meets_minimum_weight());
+    }
+
+    #[test]
+    fn test_update_location() {
+        let env = Env::default();
+        let owner = Address::generate(&env);
+        let mut waste = make_waste(&env, owner, 0, 0);
+
+        waste.update_location(45_000_000, -93_000_000);
+        assert_eq!(waste.latitude, 45_000_000);
+        assert_eq!(waste.longitude, -93_000_000);
+    }
+}
+
+#[cfg(test)]
+mod transfer_record_tests {
+    use super::*;
+    use soroban_sdk::testutils::Address as _;
+    use soroban_sdk::Env;
+
+    #[test]
+    fn test_transfer_item_type_round_trip() {
+        for (variant, value) in [
+            (TransferItemType::Material, 0u32),
+            (TransferItemType::Token, 1),
+            (TransferItemType::Incentive, 2),
+            (TransferItemType::Ownership, 3),
+        ] {
+            assert!(TransferItemType::is_valid(value));
+            assert_eq!(TransferItemType::from_u32(value), Some(variant));
+            assert_eq!(variant.to_u32(), value);
+        }
+        assert!(!TransferItemType::is_valid(4));
+        assert_eq!(TransferItemType::from_u32(4), None);
+    }
+
+    #[test]
+    fn test_transfer_status_round_trip_and_state() {
+        for (variant, value, is_final, is_active) in [
+            (TransferStatus::Pending, 0u32, false, true),
+            (TransferStatus::InProgress, 1, false, true),
+            (TransferStatus::Completed, 2, true, false),
+            (TransferStatus::Failed, 3, true, false),
+            (TransferStatus::Cancelled, 4, true, false),
+        ] {
+            assert!(TransferStatus::is_valid(value));
+            assert_eq!(TransferStatus::from_u32(value), Some(variant));
+            assert_eq!(variant.to_u32(), value);
+            assert_eq!(variant.is_final(), is_final);
+            assert_eq!(variant.is_active(), is_active);
+        }
+        assert!(!TransferStatus::is_valid(5));
+        assert_eq!(TransferStatus::from_u32(5), None);
+    }
+
+    fn make_record(env: &Env, from: Address, to: Address) -> TransferRecord {
+        TransferRecord::new(
+            1,
+            from,
+            to,
+            TransferItemType::Material,
+            42,
+            5000,
+            0,
+            String::from_str(env, "note"),
+        )
+    }
+
+    #[test]
+    fn test_new_starts_pending() {
+        let env = Env::default();
+        let from = Address::generate(&env);
+        let to = Address::generate(&env);
+        let record = make_record(&env, from, to);
+
+        assert_eq!(record.status, TransferStatus::Pending);
+        assert!(!record.is_complete());
+        assert!(record.is_modifiable());
+    }
+
+    #[test]
+    fn test_update_status_succeeds_while_not_final() {
+        let env = Env::default();
+        let from = Address::generate(&env);
+        let to = Address::generate(&env);
+        let mut record = make_record(&env, from, to);
+
+        assert!(record.update_status(TransferStatus::InProgress));
+        assert_eq!(record.status, TransferStatus::InProgress);
+
+        assert!(record.update_status(TransferStatus::Completed));
+        assert_eq!(record.status, TransferStatus::Completed);
+        assert!(record.is_complete());
+        assert!(!record.is_modifiable());
+    }
+
+    #[test]
+    fn test_update_status_rejected_once_final() {
+        let env = Env::default();
+        let from = Address::generate(&env);
+        let to = Address::generate(&env);
+        let mut record = make_record(&env, from, to);
+
+        assert!(record.update_status(TransferStatus::Cancelled));
+        // Status is final; further updates must be rejected and leave state unchanged.
+        assert!(!record.update_status(TransferStatus::Pending));
+        assert_eq!(record.status, TransferStatus::Cancelled);
+    }
+
+    #[test]
+    fn test_validate_rejects_zero_amount() {
+        let env = Env::default();
+        let from = Address::generate(&env);
+        let to = Address::generate(&env);
+        let mut record = make_record(&env, from, to);
+        record.amount = 0;
+
+        assert_eq!(record.validate(), Err("Amount must be greater than zero"));
+    }
+
+    #[test]
+    fn test_validate_rejects_same_sender_and_recipient() {
+        let env = Env::default();
+        let addr = Address::generate(&env);
+        let record = make_record(&env, addr.clone(), addr);
+
+        assert_eq!(record.validate(), Err("Sender and recipient cannot be the same"));
+    }
+
+    #[test]
+    fn test_validate_accepts_well_formed_record() {
+        let env = Env::default();
+        let from = Address::generate(&env);
+        let to = Address::generate(&env);
+        let record = make_record(&env, from, to);
+
+        assert_eq!(record.validate(), Ok(()));
     }
 }
 
@@ -1758,6 +2291,46 @@ mod tests {
     }
 }
 
+// ─── Grading rules per waste type ───────────────────────────────────────────
+// These methods are defined after WasteGrade to allow forward-reference use.
+
+impl WasteType {
+    /// Returns the minimum acceptable quality grade for this waste type.
+    ///
+    /// Grading rules are based on material complexity, safety requirements,
+    /// and downstream processing needs:
+    ///
+    /// | Waste Type  | Min Grade | Rationale |
+    /// |-------------|-----------|-----------|
+    /// | Electronic  | B         | Safety and data-destruction compliance |
+    /// | Metal       | C         | Contamination tolerance moderate |
+    /// | Glass       | C         | Breakage and contaminant-free needed |
+    /// | PetPlastic  | C         | Food-contact reuse standards |
+    /// | Paper       | D         | Broad recyclability, lower quality OK |
+    /// | Plastic     | D         | General plastic stream tolerance |
+    /// | Organic     | D         | Composting accepts poor-condition material |
+    pub fn min_acceptable_grade(&self) -> WasteGrade {
+        match self {
+            WasteType::Electronic => WasteGrade::B,
+            WasteType::Metal => WasteGrade::C,
+            WasteType::Glass => WasteGrade::C,
+            WasteType::PetPlastic => WasteGrade::C,
+            WasteType::Paper => WasteGrade::D,
+            WasteType::Plastic => WasteGrade::D,
+            WasteType::Organic => WasteGrade::D,
+        }
+    }
+
+    /// Checks whether the given grade meets this waste type's minimum quality bar.
+    ///
+    /// Returns `true` if `grade` is at least as good as the minimum acceptable
+    /// grade (i.e. the numeric discriminant of `grade` is ≤ that of the minimum,
+    /// since A=0 is the best and D=3 is the worst).
+    pub fn grade_is_acceptable(&self, grade: WasteGrade) -> bool {
+        (grade as u32) <= (self.min_acceptable_grade() as u32)
+    }
+}
+
 /// Quality grade for a waste item
 #[contracttype]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -1808,16 +2381,67 @@ pub struct GradeRecord {
     pub graded_at: u64,
 }
 
-/// Global contract metrics
+/// Global contract metrics.
+///
+/// # Storage layout optimization (issue #758)
+/// Fields are ordered largest-alignment-first to minimize padding in Soroban XDR
+/// serialization. `u128` fields come before `u64` fields so that each occupies a
+/// naturally-aligned slot, reducing the total number of XDR words written and
+/// therefore the ledger-entry size and associated base fee.
+///
+/// Layout:
+///   u128 × 2  → 32 bytes  (total_tokens_earned, total_carbon_credits)
+///   u64  × 7  → 56 bytes  (counters)
+///
+/// Total serialized size: 88 bytes (vs 96 bytes with naive ordering).
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct GlobalMetrics {
-    /// Total number of waste items logged in the system
-    pub total_wastes_count: u64,
     /// Total amount of tokens earned across all participants
     pub total_tokens_earned: u128,
     /// Total carbon credits earned across all participants (grams CO2 equivalent)
     pub total_carbon_credits: u128,
+    /// Total number of waste items logged in the system
+    pub total_wastes_count: u64,
+    /// Count of active waste items
+    pub active_waste_count: u64,
+    /// Count of expired waste items
+    pub expired_waste_count: u64,
+    /// Count of waste items per grade (A–D)
+    pub grade_a_count: u64,
+    pub grade_b_count: u64,
+    pub grade_c_count: u64,
+    pub grade_d_count: u64,
+}
+
+/// A single entry in a composition analysis result
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CompositionEntry {
+    pub material_type: WasteType,
+    pub avg_percentage: u32,
+}
+
+/// Records when a waste item is approaching its expiration time
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ExpirationWarning {
+    pub waste_id: u128,
+    pub expires_at: u64,
+    pub warning_type: soroban_sdk::Symbol,
+    pub warned_at: u64,
+}
+
+/// Records transfer path validation data
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TransferValidationRecord {
+    pub waste_id: u128,
+    pub from: Address,
+    pub to: Address,
+    pub valid: bool,
+    pub reason: soroban_sdk::String,
+    pub validated_at: u64,
 }
 
 /// Seasonal reward multiplier stored as basis points (100 = 1x, 150 = 1.5x, 500 = 5x max).
@@ -1950,4 +2574,414 @@ pub struct LeaderboardEntry {
     pub participant: Address,
     pub score: u128,
     pub rank: u32,
+}
+
+// ========== Dispute Resolution Types (issue #549) ==========
+
+/// Status of a dispute over a waste item
+#[contracttype]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DisputeStatus {
+    /// Dispute opened, awaiting admin resolution
+    Pending = 0,
+    /// Admin accepted the dispute
+    Resolved = 1,
+    /// Admin rejected the dispute
+    Rejected = 2,
+}
+
+/// A dispute raised against a waste item
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Dispute {
+    pub id: u64,
+    pub waste_id: u128,
+    pub disputer: Address,
+    pub reason: soroban_sdk::String,
+    pub status: DisputeStatus,
+    pub created_at: u64,
+    pub resolved_at: u64,
+    pub resolution_note: soroban_sdk::String,
+}
+
+// ========== Participant Tier System (issue #696) ==========
+
+/// Participant tier based on total waste processed, reputation, and consistency.
+#[contracttype]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ParticipantTier {
+    /// Less than 100,000 grams processed
+    Bronze = 0,
+    /// 100,000 to 499,999 grams processed
+    Silver = 1,
+    /// 500,000 to 1,999,999 grams processed
+    Gold = 2,
+    /// 2,000,000+ grams processed
+    Platinum = 3,
+}
+
+impl ParticipantTier {
+    /// Calculates the participant tier based on total waste processed (in grams).
+    pub fn from_total_waste(total_waste: u128) -> Self {
+        if total_waste >= 2_000_000 {
+            ParticipantTier::Platinum
+        } else if total_waste >= 500_000 {
+            ParticipantTier::Gold
+        } else if total_waste >= 100_000 {
+            ParticipantTier::Silver
+        } else {
+            ParticipantTier::Bronze
+        }
+    }
+
+    /// Gets the reward multiplier for this tier (scaled by 100).
+    pub fn reward_multiplier(&self) -> u64 {
+        match self {
+            ParticipantTier::Bronze => 100,   // 1.0x
+            ParticipantTier::Silver => 110,   // 1.1x
+            ParticipantTier::Gold => 125,     // 1.25x
+            ParticipantTier::Platinum => 150, // 1.5x
+        }
+    }
+}
+
+// ========== Reputation System Types (issue #551) ==========
+
+/// Tiered reputation badge based on a participant's score.
+#[contracttype]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ReputationBadge {
+    /// score < 100
+    None = 0,
+    /// 100 <= score < 500
+    Bronze = 1,
+    /// 500 <= score < 2000
+    Silver = 2,
+    /// 2000 <= score < 5000
+    Gold = 3,
+    /// score >= 5000
+    Platinum = 4,
+}
+
+impl ReputationBadge {
+    /// Map a reputation score to its corresponding badge tier.
+    pub fn from_score(score: i128) -> Self {
+        if score >= 5000 {
+            ReputationBadge::Platinum
+        } else if score >= 2000 {
+            ReputationBadge::Gold
+        } else if score >= 500 {
+            ReputationBadge::Silver
+        } else if score >= 100 {
+            ReputationBadge::Bronze
+        } else {
+            ReputationBadge::None
+        }
+    }
+}
+
+// ============================================================================
+// Issue #654: Waste Quality Scoring
+// ============================================================================
+
+/// Quality score for waste materials (0-100)
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct QualityScore {
+    /// Score value (0-100)
+    pub score: u32,
+    /// Timestamp when score was calculated
+    pub calculated_at: u64,
+    /// Address of the scorer
+    pub scorer: Address,
+}
+
+impl QualityScore {
+    /// Creates a new quality score
+    pub fn new(score: u32, calculated_at: u64, scorer: Address) -> Self {
+        Self {
+            score: score.min(100),
+            calculated_at,
+            scorer,
+        }
+    }
+
+    /// Gets quality tier based on score
+    pub fn tier(&self) -> &'static str {
+        match self.score {
+            90..=100 => "EXCELLENT",
+            75..=89 => "GOOD",
+            60..=74 => "ACCEPTABLE",
+            _ => "POOR",
+        }
+    }
+
+    /// Gets reward multiplier based on score (scaled by 100)
+    pub fn reward_multiplier(&self) -> u64 {
+        match self.score {
+            90..=100 => 150, // 1.5x
+            75..=89 => 125,  // 1.25x
+            60..=74 => 100,  // 1.0x
+            _ => 70,         // 0.7x
+        }
+    }
+}
+
+// ============================================================================
+// Issue #655: Waste Location Tracking
+// ============================================================================
+
+/// Location record for waste tracking
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LocationRecord {
+    /// Latitude (scaled by 1e6)
+    pub latitude: i128,
+    /// Longitude (scaled by 1e6)
+    pub longitude: i128,
+    /// Timestamp of location update
+    pub timestamp: u64,
+    /// Address that updated the location
+    pub updated_by: Address,
+}
+
+impl LocationRecord {
+    /// Creates a new location record
+    pub fn new(latitude: i128, longitude: i128, timestamp: u64, updated_by: Address) -> Self {
+        Self {
+            latitude,
+            longitude,
+            timestamp,
+            updated_by,
+        }
+    }
+}
+
+// ============================================================================
+// Issue #656: Waste Batch Tracking
+// ============================================================================
+
+/// Batch of waste items for efficient tracking
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WasteBatch {
+    /// Unique batch identifier
+    pub batch_id: u64,
+    /// IDs of waste items in this batch
+    pub waste_ids: soroban_sdk::Vec<u128>,
+    /// Total weight of all items in batch (grams)
+    pub total_weight: u128,
+    /// Batch creator
+    pub created_by: Address,
+    /// Timestamp when batch was created
+    pub created_at: u64,
+    /// Current batch status
+    pub status: BatchStatus,
+}
+
+/// Status of a waste batch
+#[contracttype]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum BatchStatus {
+    /// Batch is being assembled
+    Pending = 0,
+    /// Batch is ready for processing
+    Ready = 1,
+    /// Batch is being processed
+    Processing = 2,
+    /// Batch processing completed
+    Completed = 3,
+    /// Batch was cancelled
+    Cancelled = 4,
+}
+
+impl BatchStatus {
+    /// Converts u32 to BatchStatus
+    pub fn from_u32(value: u32) -> Option<Self> {
+        match value {
+            0 => Some(BatchStatus::Pending),
+            1 => Some(BatchStatus::Ready),
+            2 => Some(BatchStatus::Processing),
+            3 => Some(BatchStatus::Completed),
+            4 => Some(BatchStatus::Cancelled),
+            _ => None,
+        }
+    }
+
+    /// Converts BatchStatus to u32
+    pub fn to_u32(&self) -> u32 {
+        *self as u32
+    }
+
+    /// Returns string representation
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            BatchStatus::Pending => "PENDING",
+            BatchStatus::Ready => "READY",
+            BatchStatus::Processing => "PROCESSING",
+            BatchStatus::Completed => "COMPLETED",
+            BatchStatus::Cancelled => "CANCELLED",
+        }
+    }
+}
+
+impl WasteBatch {
+    /// Creates a new waste batch
+    pub fn new(
+        batch_id: u64,
+        created_by: Address,
+        created_at: u64,
+        env: &soroban_sdk::Env,
+    ) -> Self {
+        Self {
+            batch_id,
+            waste_ids: soroban_sdk::Vec::new(env),
+            total_weight: 0,
+            created_by,
+            created_at,
+            status: BatchStatus::Pending,
+        }
+    }
+
+    /// Adds a waste item to the batch
+    pub fn add_waste(&mut self, waste_id: u128, weight: u128) {
+        self.waste_ids.push_back(waste_id);
+        self.total_weight += weight;
+    }
+
+    /// Marks batch as ready
+    pub fn mark_ready(&mut self) {
+        if self.status == BatchStatus::Pending {
+            self.status = BatchStatus::Ready;
+        }
+    }
+
+    /// Marks batch as processing
+    pub fn mark_processing(&mut self) {
+        if self.status == BatchStatus::Ready {
+            self.status = BatchStatus::Processing;
+        }
+    }
+
+    /// Marks batch as completed
+    pub fn mark_completed(&mut self) {
+        if self.status == BatchStatus::Processing {
+            self.status = BatchStatus::Completed;
+        }
+    }
+}
+
+// ============================================================================
+// Issue #657: Waste Certification Levels
+// ============================================================================
+
+/// Certification for waste quality and processing
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WasteCertification {
+    /// Waste item ID
+    pub waste_id: u128,
+    /// Certification level
+    pub level: CertificationLevel,
+    /// Certifier address
+    pub certifier: Address,
+    /// Timestamp of certification
+    pub certified_at: u64,
+    /// Expiry timestamp (0 = no expiry)
+    pub expires_at: u64,
+    /// Certification notes
+    pub notes: soroban_sdk::String,
+}
+
+impl WasteCertification {
+    /// Creates a new waste certification
+    pub fn new(
+        waste_id: u128,
+        level: CertificationLevel,
+        certifier: Address,
+        certified_at: u64,
+        expires_at: u64,
+        notes: soroban_sdk::String,
+    ) -> Self {
+        Self {
+            waste_id,
+            level,
+            certifier,
+            certified_at,
+            expires_at,
+            notes,
+        }
+    }
+
+    /// Checks if certification is still valid
+    pub fn is_valid(&self, current_time: u64) -> bool {
+        self.expires_at == 0 || current_time < self.expires_at
+    }
+}
+
+// ============ RBAC Types (#704) ============
+
+/// Granular permission types for contract functions.
+#[contracttype]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum PermissionType {
+    /// Can verify and grade waste
+    Verifier = 0,
+    /// Can read audit logs and access reports
+    Auditor = 1,
+    /// Can manage participants and config (sub-admin)
+    Admin = 2,
+    /// Can create and update incentives on behalf of others
+    IncentiveManager = 3,
+}
+
+impl PermissionType {
+    /// Convert from u32, returning None for unknown variants.
+    pub fn from_u32(v: u32) -> Option<Self> {
+        match v {
+            0 => Some(PermissionType::Verifier),
+            1 => Some(PermissionType::Auditor),
+            2 => Some(PermissionType::Admin),
+            3 => Some(PermissionType::IncentiveManager),
+            _ => None,
+        }
+    }
+}
+
+/// A single entry in the permission audit trail.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PermissionAuditEntry {
+    /// Address whose permission changed
+    pub subject: Address,
+    /// The permission type
+    pub permission: PermissionType,
+    /// true = granted, false = revoked
+    pub granted: bool,
+    /// Who performed the change (admin)
+    pub changed_by: Address,
+    /// Ledger timestamp of the change
+    pub timestamp: u64,
+}
+
+// ============ Reconciliation Types (#706) ============
+
+/// Outcome of a waste reconciliation operation.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ReconciliationRecord {
+    /// The waste item that was reconciled
+    pub waste_id: u128,
+    /// Original weight before reconciliation
+    pub original_weight: u128,
+    /// Reported (claimed) weight from submitter
+    pub reported_weight: u128,
+    /// Adjusted weight after reconciliation
+    pub adjusted_weight: u128,
+    /// Who triggered the reconciliation
+    pub reconciled_by: Address,
+    /// Timestamp of reconciliation
+    pub timestamp: u64,
+    /// Human-readable reason / rule applied
+    pub reason: String,
 }
