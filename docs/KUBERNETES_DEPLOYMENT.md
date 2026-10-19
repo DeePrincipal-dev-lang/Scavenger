@@ -184,8 +184,39 @@ spec:
       selfHeal: true
 ```
 
+### Persistent Volumes
+
+`k8s/persistent-volumes.yml` provisions PVs and PVCs for stateful services:
+
+| PVC | Size | Used By |
+|-----|------|---------|
+| `scavenger-postgres-pvc` | 50Gi | PostgreSQL primary/replica |
+| `scavenger-prometheus-pvc` | 20Gi | Prometheus TSDB |
+| `scavenger-grafana-pvc` | 5Gi | Grafana dashboards/data |
+| `scavenger-elasticsearch-pvc` | 30Gi | Elasticsearch log indices |
+
+```bash
+kubectl apply -f k8s/persistent-volumes.yml
+```
+
+> **Note:** The manifests use `hostPath` for development. For production, replace with a cloud-provider `StorageClass` (e.g., `gp3` on EKS, `pd-ssd` on GKE).
+
+### Frontend Service
+
+`k8s/deployment.yml` includes a `scavenger-frontend` Deployment and ClusterIP Service. The frontend reads `NEXT_PUBLIC_API_URL` from the `scavenger-config` ConfigMap. The Ingress routes `scavenger.app` traffic to this service.
+
+## Deployment Order
+
+```bash
+kubectl apply -f k8s/rbac.yml
+kubectl apply -f k8s/persistent-volumes.yml
+kubectl apply -f k8s/deployment.yml
+kubectl apply -f k8s/ingress.yml
+```
+
 ## Production Checklist
 
+- [ ] Replace hostPath PVs with cloud-provider StorageClass
 - [ ] Configure resource quotas
 - [ ] Set up monitoring and alerting
 - [ ] Configure backup strategy

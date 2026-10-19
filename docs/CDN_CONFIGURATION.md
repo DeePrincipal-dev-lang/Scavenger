@@ -1,42 +1,42 @@
 # CDN Configuration
 
-Scavenger uses AWS CloudFront for global content delivery with optimized caching policies.
+Scavenger uses AWS CloudFront for global content delivery, optimized cache policies, and monitored invalidation workflows.
 
 ## Architecture
 
-- **Origin**: S3 bucket with static assets
+- **Origin**: S3 bucket for static assets and frontend deployment
 - **Distribution**: CloudFront CDN with edge locations worldwide
-- **Cache Layers**: Optimized for different content types
-- **SSL/TLS**: Custom domain with ACM certificate
+- **Cache Layers**: Path-based caching for static content, API traffic, and SPA fallback
+- **SSL/TLS**: ACM certificate and HTTPS-only viewer policy
 
 ## Cache Policies
 
-### Static Assets (`/static/*`)
-- **TTL**: 1 year (31536000 seconds)
-- **Compression**: Enabled
-- **Versioning**: Content-hash based filenames
+The CloudFront distribution is configured with path-based cache behavior:
 
-### API Endpoints (`/api/*`)
-- **TTL**: 0 seconds (no caching)
-- **Query Strings**: Forwarded
-- **Cookies**: Forwarded
-
-### HTML/JS/CSS
-- **TTL**: 1 day (86400 seconds)
-- **Compression**: Enabled
-- **Query Strings**: Not forwarded
+- **`/static/*`**
+  - Long-term caching for hashed assets
+  - AWS managed caching optimized policy
+  - Compression enabled
+- **`/api/*`**
+  - No caching for API traffic
+  - All query strings and cookies forwarded to the origin
+  - AWS managed caching disabled policy
+- **Default behavior**
+  - HTML/JS/CSS served with a shorter TTL and HTTPS redirect
+  - Supports SPA routing via `index.html` fallback
 
 ## Setup
 
 ### Prerequisites
 
-- AWS Account with CloudFront access
-- S3 bucket for origin
-- ACM certificate for custom domain
+- AWS account with CloudFront and S3 permissions
+- S3 bucket for asset hosting
+- ACM certificate in `us-east-1` for the CDN custom domain
 
 ### Deployment
 
 1. **Create S3 Origin**
+
 ```bash
 aws s3 mb s3://scavenger-app-cdn
 aws s3api put-bucket-versioning \
@@ -45,12 +45,14 @@ aws s3api put-bucket-versioning \
 ```
 
 2. **Deploy CloudFront Distribution**
+
 ```bash
 aws cloudfront create-distribution-with-tags \
   --distribution-config-with-tags file://config/cloudfront-distribution.yaml
 ```
 
 3. **Update DNS**
+
 ```bash
 # Point CNAME to CloudFront domain
 # scavenger.example.com -> d111111abcdef8.cloudfront.net
@@ -58,40 +60,52 @@ aws cloudfront create-distribution-with-tags \
 
 ## Cache Invalidation
 
-Invalidate cache after deployments:
+Use the CDN invalidation helper script after frontend releases:
 
 ```bash
-./scripts/cdn-invalidation.sh "/*"
+./scripts/cdn-invalidation.sh E1234567890ABC "/*"
 ```
 
-Or specific paths:
+Invalidate only changed assets:
 
 ```bash
-./scripts/cdn-invalidation.sh "/index.html /app.js"
+./scripts/cdn-invalidation.sh E1234567890ABC "/index.html /app.js"
 ```
-
-## Image Optimization
-
-CloudFront automatically optimizes images:
-
-- **WebP**: Served to supported browsers
-- **Compression**: Automatic gzip/brotli
-- **Responsive**: Automatic format selection
 
 ## Monitoring
 
-Monitor CDN performance in CloudWatch:
+Use CloudWatch and the CDN monitor script to track distribution health.
+
+```bash
+./scripts/cdn-monitor.sh E1234567890ABC
+```
+
+Key CloudFront metrics:
+
+- `Requests`
+- `BytesDownloaded`
+- `4xxErrorRate`
+- `5xxErrorRate`
+- `CacheHitRate`
+
+### Quick CloudWatch query
 
 ```bash
 aws cloudwatch get-metric-statistics \
   --namespace AWS/CloudFront \
   --metric-name BytesDownloaded \
   --dimensions Name=DistributionId,Value=E1234567890ABC \
-  --start-time 2024-01-01T00:00:00Z \
-  --end-time 2024-01-02T00:00:00Z \
+  --start-time 2026-05-28T00:00:00Z \
+  --end-time 2026-05-29T00:00:00Z \
   --period 3600 \
   --statistics Sum
 ```
+
+## Notes
+
+- The distribution config uses path-based caching rules for static assets and API endpoints.
+- Custom error responses route `403` and `404` to `index.html` for SPA fallback.
+- Monitoring should be enabled for cache hit rate and HTTPS error spikes.
 
 ## Cost Optimization
 

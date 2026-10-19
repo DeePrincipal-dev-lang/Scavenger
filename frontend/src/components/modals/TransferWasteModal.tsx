@@ -19,6 +19,7 @@ import { useContract } from '@/context/ContractContext'
 import { networkConfig } from '@/lib/stellar'
 import { ScavengerClient } from '@/api/client'
 import { cn } from '@/lib/utils'
+import { isValidStellarAddress } from '@/lib/validation/stellarAddress'
 import { ArrowRightLeft, AlertCircle } from 'lucide-react'
 
 // ── Transfer rule validation ──────────────────────────────────────────────────
@@ -30,9 +31,6 @@ const VALID_RECIPIENT_ROLES: Record<Role, Role[]> = {
   [Role.Collector]:     [Role.Manufacturer],
   [Role.Manufacturer]:  [],
 }
-
-// Stellar public key: 56 chars, starts with G
-const STELLAR_ADDRESS_RE = /^G[A-Z2-7]{55}$/
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -59,7 +57,7 @@ export function TransferWasteModal({ waste, open, onClose, onSuccess }: Transfer
 
   const addressError: string | null = (() => {
     if (!recipientTrimmed) return null
-    if (!STELLAR_ADDRESS_RE.test(recipientTrimmed)) return 'Invalid Stellar address.'
+    if (!isValidStellarAddress(recipientTrimmed)) return 'Invalid Stellar address.'
     if (recipientTrimmed === address) return 'Recipient cannot be yourself.'
     if (waste && recipientTrimmed === waste.current_owner) return 'Recipient is already the owner.'
     return null

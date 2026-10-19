@@ -1,23 +1,23 @@
 /**
- * useExportImport — issue #1072 (backward-compat re-export)
+ * useExportImport
  *
- * The combined hook has been split into focused modules:
- *   - useExport  → frontend/src/hooks/useExport.ts
- *   - useImport  → frontend/src/hooks/useImport.ts
- *
- * This file re-exports both for any code that imports from the original
- * combined path, and is the only surviving artifact from the dead-code
- * cleanup.  New code should import directly from `useExport` or
- * `useImport`.
- *
- * Dead code removed in this cleanup:
- *   - XML format handler  (no call sites in the codebase)
- *   - XLS/XLSX format handler (no call sites in the codebase)
- *   - "legacy-csv" branch with a different column order (superseded)
- *   - Unreachable "dry-run preview" branch never wired to a UI component
+ * Convenience hook that exposes all export/import utilities from
+ * the unified lib/exportImport module so components can consume them
+ * without importing from the lib directly.
  */
-export { useExport } from './useExport';
-export type { CsvRow, ExportOptions } from './useExport';
-
-export { useImport } from './useImport';
-export type { ImportState, CsvRecord } from './useImport';
+export {
+  exportWasteToCSV,
+  exportWasteToJSON,
+  exportAnalyticsToCSV,
+  exportParticipantStatsToPDF,
+  PDFExporter,
+  parseWasteCSV,
+  generateWasteTemplateCSV,
+  triggerDownload,
+  type AnalyticsMonthlyRow,
+  type ImportWasteRow,
+  type ParsedImportResult,
+  type ImportPreviewRow,
+  type WasteExportData,
+  type PDFExportOptions,
+} from '@/lib/exportImport'

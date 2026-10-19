@@ -5,6 +5,7 @@ import { networkConfig } from '@/lib/stellar'
 import { useWallet } from '@/context/WalletContext'
 import { useToast } from '@/hooks/useToast'
 import { ScavengerClient } from '@/api/client'
+import { cacheKeys } from '@/lib/cacheKeys'
 
 const INCENTIVES_STALE_TIME = 30 * 1000 // 30 seconds
 
@@ -15,7 +16,7 @@ export function useIncentives(wasteType?: WasteType) {
   const toast = useToast()
 
   const { data, isLoading, isError } = useQuery<Incentive[]>({
-    queryKey: ['incentives', wasteType ?? 'all'],
+    queryKey: cacheKeys.incentives(wasteType),
     queryFn: async () => {
       const client = new ScavengerClient({
         rpcUrl: config.rpcUrl,
@@ -35,11 +36,11 @@ export function useIncentives(wasteType?: WasteType) {
       contractId: config.contractId,
     })
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['incentives'] })
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: cacheKeys.incentivesRoot() })
 
   const createIncentive = useMutation({
     mutationFn: ({ wt, rewardPoints, budget }: { wt: WasteType; rewardPoints: bigint; budget: bigint }) => {
-      if (!address) throw new Error('Wallet not connected')
+      if (!address) throw new Error('Wallet not connected.')
       return getClient().createIncentive(address, wt, rewardPoints, budget, address)
     },
     onSuccess: (incentive) => {
@@ -51,7 +52,7 @@ export function useIncentives(wasteType?: WasteType) {
 
   const updateIncentive = useMutation({
     mutationFn: ({ id, rewardPoints, budget }: { id: bigint; rewardPoints: bigint; budget: bigint }) => {
-      if (!address) throw new Error('Wallet not connected')
+      if (!address) throw new Error('Wallet not connected.')
       return getClient().updateIncentive(id, address, rewardPoints, budget, address)
     },
     onSuccess: (incentive) => {
@@ -63,7 +64,7 @@ export function useIncentives(wasteType?: WasteType) {
 
   const deactivateIncentive = useMutation({
     mutationFn: ({ id }: { id: bigint }) => {
-      if (!address) throw new Error('Wallet not connected')
+      if (!address) throw new Error('Wallet not connected.')
       return getClient().deactivateIncentive(id, address, address)
     },
     onSuccess: () => {

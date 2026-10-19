@@ -1,0 +1,78 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Route53 DNS failover configuration for multi-region deployment
+
+Parameters:
+  DomainName:
+    Type: String
+    Default: scavenger.app
+  PrimaryRegionEndpoint:
+    Type: String
+  SecondaryRegionEndpoint:
+    Type: String
+  HealthCheckInterval:
+    Type: Number
+    Default: 30
+  FailureThreshold:
+    Type: Number
+    Default: 3
+
+Resources:
+  PrimaryHealthCheck:
+    Type: AWS::Route53::HealthCheck
+    Properties:
+      HealthCheckConfig:
+        Type: HTTPS
+        FullyQualifiedDomainName: !Ref PrimaryRegionEndpoint
+        Port: 443
+        ResourcePath: /health
+        RequestInterval: !Ref HealthCheckInterval
+        FailureThreshold: !Ref FailureThreshold
+        MeasureLatency: true
+        EnableSNI: true
+      HealthCheckTags:
+        - Key: Name
+          Value: scavenger-primary-health
+        - Key: Project
+          Value: scavenger
+
+  SecondaryHealthCheck:
+    Type: AWS::Route53::HealthCheck
+    Properties:
+      HealthCheckConfig:
+        Type: HTTPS
+        FullyQualifiedDomainName: !Ref SecondaryRegionEndpoint
+        Port: 443
+        ResourcePath: /health
+        RequestInterval: !Ref HealthCheckInterval
+        FailureThreshold: !Ref FailureThreshold
+        MeasureLatency: true
+        EnableSNI: true
+      HealthCheckTags:
+        - Key: Name
+          Value: scavenger-secondary-health
+        - Key: Project
+          Value: scavenger
+
+  DnsRecord:
+    Type: AWS::Route53::RecordSetGroup
+    Properties:
+      HostedZoneName: !Sub '${DomainName}.'
+      RecordSets:
+        - Name: !Ref DomainName
+          Type: A
+          SetIdentifier: primary
+          Failover: PRIMARY
+          HealthCheckId: !Ref PrimaryHealthCheck
+          AliasTarget:
+            HostedZoneId: Z35SXDOTRQ7X7K
+            DNSName: !Ref PrimaryRegionEndpoint
+            EvaluateTargetHealth: true
+        - Name: !Ref DomainName
+          Type: A
+          SetIdentifier: secondary
+          Failover: SECONDARY
+          HealthCheckId: !Ref SecondaryHealthCheck
+          AliasTarget:
+            HostedZoneId: Z35SXDOTRQ7X7K
+            DNSName: !Ref SecondaryRegionEndpoint
+            EvaluateTargetHealth: true

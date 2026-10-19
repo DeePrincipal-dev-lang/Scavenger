@@ -1,0 +1,134 @@
+# Release versioning strategy configuration
+
+versioning:
+  scheme: semantic
+  format: "{major}.{minor}.{patch}"
+  prefix: v
+
+  components:
+    major:
+      description: Breaking changes or major feature releases
+      increment_on:
+        - pattern: "BREAKING*"
+        - pattern: "feat!*"
+        - pattern: "major release"
+
+    minor:
+      description: New features, non-breaking changes
+      increment_on:
+        - pattern: "feat*"
+        - pattern: "feature*"
+        - pattern: "minor release"
+
+    patch:
+      description: Bug fixes, performance improvements, documentation
+      increment_on:
+        - pattern: "fix*"
+        - pattern: "bugfix*"
+        - pattern: "hotfix*"
+        - pattern: "perf*"
+        - pattern: "patch release"
+        - default: true
+
+branches:
+  main:
+    release_type: stable
+    version_source: chart
+    auto_tag: true
+
+  develop:
+    release_type: snapshot
+    version_suffix: -SNAPSHOT
+    auto_tag: false
+
+  release/*:
+    release_type: candidate
+    version_suffix: -rc.{build_number}
+    auto_tag: true
+    merge_targets: [main]
+
+  hotfix/*:
+    release_type: hotfix
+    version_suffix: -hotfix.{build_number}
+    auto_tag: true
+    merge_targets: [main, develop]
+
+artifacts:
+  docker_images:
+    - name: scavenger-backend
+      registry: ghcr.io/xoulomon
+      tags:
+        - "{version}"
+        - "{major}.{minor}"
+        - latest
+    - name: scavenger-frontend
+      registry: ghcr.io/xoulomon
+      tags:
+        - "{version}"
+        - "{major}.{minor}"
+        - latest
+
+  helm_chart:
+    path: k8s/Chart.yaml
+    update_fields:
+      - version
+      - appVersion
+
+  npm_packages:
+    - path: frontend/package.json
+    - path: packages/scavenger-sdk/package.json
+
+changelog:
+  output: CHANGELOG.md
+  format: keepachangelog
+  sections:
+    - title: Added
+      patterns: [feat, feature]
+    - title: Changed
+      patterns: [refactor, perf, chore]
+    - title: Fixed
+      patterns: [fix, bugfix, hotfix]
+    - title: Removed
+      patterns: [remove, deprecate]
+    - title: Security
+      patterns: [security, audit]
+    - title: Documentation
+      patterns: [docs]
+
+release_process:
+  steps:
+    - name: validate
+      description: Validate version and branch
+      required: true
+
+    - name: changelog
+      description: Generate changelog entries
+      required: true
+
+    - name: version_bump
+      description: Update version in all files
+      required: true
+
+    - name: build
+      description: Build release artifacts
+      required: true
+
+    - name: test
+      description: Run test suite
+      required: true
+
+    - name: security_scan
+      description: Run security scans
+      required: true
+
+    - name: tag
+      description: Create git tag
+      required: true
+
+    - name: release_notes
+      description: Generate release notes
+      required: true
+
+    - name: publish
+      description: Publish artifacts
+      required: false

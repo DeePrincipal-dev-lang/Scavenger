@@ -37,7 +37,7 @@ fn test_split_into_two_equal_parts() {
     let waste_id = register_waste(&client, &owner, 1000);
     let weights = vec![&env, 500u128, 500u128];
 
-    let child_ids = client.split_waste(&waste_id, &owner, &weights).unwrap();
+    let child_ids = client.split_waste(&waste_id, &owner, &weights);
 
     assert_eq!(child_ids.len(), 2);
 
@@ -63,7 +63,7 @@ fn test_split_into_unequal_parts() {
     let waste_id = register_waste(&client, &owner, 1000);
     let weights = vec![&env, 300u128, 700u128];
 
-    let child_ids = client.split_waste(&waste_id, &owner, &weights).unwrap();
+    let child_ids = client.split_waste(&waste_id, &owner, &weights);
 
     assert_eq!(child_ids.len(), 2);
     let c1 = client.get_waste_v2(&child_ids.get(0).unwrap()).unwrap();
@@ -81,7 +81,7 @@ fn test_children_inherit_waste_type_and_location() {
     let waste_id = client.recycle_waste(&WasteType::Metal, &2000u128, &owner, &10_000_000i128, &20_000_000i128);
 
     let weights = vec![&env, 1000u128, 1000u128];
-    let child_ids = client.split_waste(&waste_id, &owner, &weights).unwrap();
+    let child_ids = client.split_waste(&waste_id, &owner, &weights);
 
     for i in 0..child_ids.len() {
         let child = client.get_waste_v2(&child_ids.get(i).unwrap()).unwrap();
@@ -101,7 +101,7 @@ fn test_children_appear_in_owner_waste_list() {
     let waste_id = register_waste(&client, &owner, 900);
     let weights = vec![&env, 300u128, 300u128, 300u128];
 
-    let child_ids = client.split_waste(&waste_id, &owner, &weights).unwrap();
+    let child_ids = client.split_waste(&waste_id, &owner, &weights);
 
     let owner_wastes = client.get_participant_wastes_v2(&owner);
 
@@ -121,7 +121,7 @@ fn test_parent_removed_from_owner_waste_list() {
     let waste_id = register_waste(&client, &owner, 500);
     let weights = vec![&env, 250u128, 250u128];
 
-    client.split_waste(&waste_id, &owner, &weights).unwrap();
+    client.split_waste(&waste_id, &owner, &weights);
 
     let owner_wastes = client.get_participant_wastes_v2(&owner);
     assert!(!owner_wastes.contains(&waste_id));
@@ -145,11 +145,11 @@ fn test_transfer_history_copied_to_children() {
 
     let waste_id = register_waste(&client, &owner, 1000);
     // Transfer: Recycler -> Collector
-    client.transfer_waste_v2(&waste_id, &owner, &collector, &0, &0).unwrap();
+    client.transfer_waste_v2(&waste_id, &owner, &collector, &0, &0);
 
     // Now split as collector
     let weights = vec![&env, 600u128, 400u128];
-    let child_ids = client.split_waste(&waste_id, &collector, &weights).unwrap();
+    let child_ids = client.split_waste(&waste_id, &collector, &weights);
 
     // Each child should have the same transfer history as the parent
     let parent_history = client.get_waste_transfer_history_v2(&waste_id);
@@ -166,9 +166,11 @@ fn test_split_max_10_parts() {
     let (client, _admin, owner) = setup(&env);
 
     let waste_id = register_waste(&client, &owner, 1000);
-    let weights = vec![&env, 100u128, 100u128, 100u128, 100u128, 100u128, 100u128, 100u128, 100u128, 100u128, 100u128];
+    let weights = vec![
+        &env, 100u128, 100u128, 100u128, 100u128, 100u128, 100u128, 100u128, 100u128, 100u128, 100u128,
+    ];
 
-    let child_ids = client.split_waste(&waste_id, &owner, &weights).unwrap();
+    let child_ids = client.split_waste(&waste_id, &owner, &weights);
     assert_eq!(child_ids.len(), 10);
 }
 
@@ -242,7 +244,9 @@ fn test_split_too_many_weights() {
 
     let waste_id = register_waste(&client, &owner, 1100);
     // 11 weights
-    let weights = vec![&env, 100u128, 100u128, 100u128, 100u128, 100u128, 100u128, 100u128, 100u128, 100u128, 100u128, 100u128];
+    let weights = vec![
+        &env, 100u128, 100u128, 100u128, 100u128, 100u128, 100u128, 100u128, 100u128, 100u128, 100u128, 100u128,
+    ];
 
     let result = client.try_split_waste(&waste_id, &owner, &weights);
     assert_eq!(result, Err(Ok(Error::TooManySplits)));
@@ -283,7 +287,7 @@ fn test_split_children_are_independent() {
 
     let waste_id = register_waste(&client, &owner, 1000);
     let weights = vec![&env, 500u128, 500u128];
-    let child_ids = client.split_waste(&waste_id, &owner, &weights).unwrap();
+    let child_ids = client.split_waste(&waste_id, &owner, &weights);
 
     let c1_id = child_ids.get(0).unwrap();
     let c2_id = child_ids.get(1).unwrap();

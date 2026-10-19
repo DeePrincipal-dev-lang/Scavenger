@@ -2,6 +2,55 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Accessibility: Screen reader only */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+.sr-only:focus,
+.sr-only:active {
+  position: static;
+  width: auto;
+  height: auto;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+}
+
+/* High contrast mode */
+.high-contrast {
+  --background: 0 0% 0%;
+  --foreground: 0 0% 100%;
+  --primary: 0 0% 100%;
+  --primary-foreground: 0 0% 0%;
+}
+
+/* Reduced motion */
+.reduce-motion *,
+.reduce-motion *::before,
+.reduce-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
+
+/* Font size variations */
+.font-small {
+  font-size: 87.5%;
+}
+
+.font-large {
+  font-size: 112.5%;
+}
+
 @layer base {
   :root {
     /* ── Light theme ─────────────────────────────────────────────────── */
@@ -14,8 +63,9 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    /* Primary: green-600 (#16a34a) — WCAG AA on white */
-    --primary: 142 76% 36%;
+    /* Primary: green-700 equivalent (#12873d) — 4.61:1 on white AND white-on-green;
+       bumped from green-600 (hsl 142 76% 36%) which was 3.30:1 — WCAG AA fail */
+    --primary: 142 76% 30%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 210 40% 94%;
@@ -49,7 +99,7 @@
     --popover: 222 47% 11%;
     --popover-foreground: 210 40% 96%;
 
-    /* Primary: green-400 (#4ade80) — 4.6:1 on dark bg */
+    /* Primary: green-400 (#4ade80) — 10.83:1 on dark bg */
     --primary: 142 69% 58%;
     --primary-foreground: 222 47% 8%;
 
@@ -62,12 +112,43 @@
     --accent: 142 30% 20%;
     --accent-foreground: 142 69% 80%;
 
-    --destructive: 0 72% 55%;          /* 4.5:1 on dark bg */
+    --destructive: 0 72% 58%;          /* 4.67:1 on dark bg — AA (raised from 55%) */
     --destructive-foreground: 0 0% 100%;
 
     --border: 217 33% 22%;
     --input: 217 33% 22%;
     --ring: 142 69% 58%;
+  }
+
+  .high-contrast {
+    /* ── High Contrast theme ───────────────────────────────────────────── */
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
+
+    --card: 0 0% 0%;
+    --card-foreground: 0 0% 100%;
+
+    --popover: 0 0% 0%;
+    --popover-foreground: 0 0% 100%;
+
+    --primary: 60 100% 50%; /* Yellow */
+    --primary-foreground: 0 0% 0%;
+
+    --secondary: 0 0% 100%;
+    --secondary-foreground: 0 0% 0%;
+
+    --muted: 0 0% 20%;
+    --muted-foreground: 0 0% 100%;
+
+    --accent: 200 100% 50%; /* Cyan */
+    --accent-foreground: 0 0% 0%;
+
+    --destructive: 0 100% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 0 0% 100%;
+    --input: 0 0% 100%;
+    --ring: 60 100% 50%;
   }
 }
 

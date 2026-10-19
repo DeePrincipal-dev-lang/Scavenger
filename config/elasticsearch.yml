@@ -1,0 +1,46 @@
+# Elasticsearch Configuration for Scavenger Backend
+# This file provides example configuration for running Elasticsearch
+
+# Cluster settings
+cluster.name: scavenger-cluster
+node.name: scavenger-node-1
+
+# Network settings
+network.host: 0.0.0.0
+http.port: 9200
+transport.port: 9300
+
+# Path settings
+path.data: /var/lib/elasticsearch
+path.logs: /var/log/elasticsearch
+
+# Memory settings
+bootstrap.memory_lock: true
+
+# Discovery settings (for single node)
+discovery.type: single-node
+
+# Index settings
+action.auto_create_index: true
+action.destructive_requires_name: true
+
+# Security settings (basic)
+xpack.security.enabled: false
+xpack.security.enrollment.enabled: false
+
+# Monitoring
+xpack.monitoring.collection.enabled: true
+
+# Performance tuning
+indices.memory.index_buffer_size: 20%
+indices.queries.cache.size: 10%
+indices.fielddata.cache.size: 20%
+
+# Thread pools
+thread_pool.write.queue_size: 500
+thread_pool.search.queue_size: 1000
+
+# Circuit breakers
+indices.breaker.total.limit: 70%
+indices.breaker.request.limit: 40%
+indices.breaker.fielddata.limit: 40%

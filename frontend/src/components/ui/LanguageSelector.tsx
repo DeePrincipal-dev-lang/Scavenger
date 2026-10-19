@@ -1,11 +1,13 @@
 import { useTranslation } from 'react-i18next';
 import { Select } from './Select';
+import { getDirection } from '@/i18n/config';
 
 const languages = [
   { value: 'en', label: 'English' },
   { value: 'es', label: 'Español' },
   { value: 'fr', label: 'Français' },
   { value: 'zh', label: '中文' },
+  { value: 'ar', label: 'العربية' },
 ];
 
 export function LanguageSelector() {
@@ -13,6 +15,8 @@ export function LanguageSelector() {
 
   const handleLanguageChange = (value: string) => {
     i18n.changeLanguage(value);
+    document.documentElement.dir = getDirection(value);
+    document.documentElement.lang = value;
   };
 
   return (

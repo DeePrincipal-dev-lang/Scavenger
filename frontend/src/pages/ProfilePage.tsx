@@ -1,16 +1,5 @@
 import { useMemo, useState, useRef, useEffect, useCallback } from 'react'
 import {
-  PieChart,
-  Pie,
-  Cell,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-} from 'recharts'
-import {
   Coins,
   Package,
   ArrowRightLeft,
@@ -38,6 +27,7 @@ import {
   setStoredProfileImage,
 } from '@/lib/profile'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
+import { BarChartCard, PieChartCard } from '@/components/charts/ChartCards'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -59,6 +49,7 @@ import { cn } from '@/lib/utils'
 import { useQueryClient } from '@tanstack/react-query'
 import { useWallet } from '@/context/WalletContext'
 import { useToast } from '@/hooks/useToast'
+import { cacheKeys } from '@/lib/cacheKeys'
 
 const WASTE_TYPE_LABELS: Record<number, string> = {
   [WasteType.Paper]: 'Paper',
@@ -66,9 +57,9 @@ const WASTE_TYPE_LABELS: Record<number, string> = {
   [WasteType.Plastic]: 'Plastic',
   [WasteType.Metal]: 'Metal',
   [WasteType.Glass]: 'Glass',
+  [WasteType.Organic]: 'Organic',
+  [WasteType.Electronic]: 'Electronic',
 }
-
-const PIE_COLORS = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6']
 
 // ─── Skeleton helpers ────────────────────────────────────────────────────────
 
@@ -87,12 +78,6 @@ function ProfileHeaderSkeleton() {
         </div>
       </div>
     </Card>
-  )
-}
-
-function ChartSkeleton() {
-  return (
-    <div className="h-48 w-full animate-pulse rounded-lg bg-muted" />
   )
 }
 
@@ -261,61 +246,14 @@ function StatsSection({
 
       {/* Charts */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Waste by Type</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <ChartSkeleton />
-            ) : pieData.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">No data yet</p>
-            ) : (
-              <ResponsiveContainer width="100%" height={200}>
-                <PieChart>
-                  <Pie
-                    data={pieData}
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={80}
-                    dataKey="value"
-                    label={({ name, percent }) =>
-                      `${name} ${(percent * 100).toFixed(0)}%`
-                    }
-                    labelLine={false}
-                  >
-                    {pieData.map((_, index) => (
-                      <Cell key={index} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Submissions Over Time</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <ChartSkeleton />
-            ) : barData.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">No data yet</p>
-            ) : (
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={barData}>
-                  <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
-                  <Tooltip />
-                  <Bar dataKey="count" fill="#22c55e" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
+        <PieChartCard title="Waste by Type" data={pieData} isLoading={isLoading} />
+        <BarChartCard
+          title="Submissions Over Time"
+          data={barData}
+          xKey="month"
+          bars={[{ key: 'count', name: 'Submissions' }]}
+          isLoading={isLoading}
+        />
       </div>
     </div>
   )
@@ -329,6 +267,8 @@ const WASTE_TYPE_ICONS: Record<number, string> = {
   [WasteType.Plastic]: '🧴',
   [WasteType.Metal]: '🔩',
   [WasteType.Glass]: '🫙',
+  [WasteType.Organic]: '🌱',
+  [WasteType.Electronic]: '💻',
 }
 
 const TIMELINE_PAGE_SIZE = 10
@@ -751,12 +691,12 @@ export function ProfilePage() {
   )
 
   const retryParticipant = () => {
-    queryClient.invalidateQueries({ queryKey: ['participant', address] })
+    queryClient.invalidateQueries({ queryKey: cacheKeys.participant(address) })
   }
 
   const retryStats = () => {
-    queryClient.invalidateQueries({ queryKey: ['participant-stats', address] })
-    queryClient.invalidateQueries({ queryKey: ['participant-wastes', address] })
+    queryClient.invalidateQueries({ queryKey: cacheKeys.participantStats(address) })
+    queryClient.invalidateQueries({ queryKey: cacheKeys.participantWastes(address) })
   }
 
   // Whether the authenticated wallet owns this profile

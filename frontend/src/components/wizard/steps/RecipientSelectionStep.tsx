@@ -1,11 +1,5 @@
-import { UseFormRegister, FieldErrors } from 'react-hook-form';
-import { Input } from '../../ui/Input';
-
-interface RecipientSelectionStepProps {
-  register: UseFormRegister<any>;
-  errors: FieldErrors;
-  formData: any;
-}
+import { Input } from '../../ui/Input'
+import { RecipientSelectionStepProps } from '../types'
 
 const mockRecipients = [
   { address: 'GABC...XYZ1', name: 'Recycling Center A', type: 'Recycler' },
@@ -13,7 +7,7 @@ const mockRecipients = [
   { address: 'GHIJ...XYZ3', name: 'Collection Point C', type: 'Collector' },
 ];
 
-export function RecipientSelectionStep({ register, errors, formData }: RecipientSelectionStepProps) {
+export function RecipientSelectionStep({ register, errors, formData: _formData }: RecipientSelectionStepProps) {
   return (
     <div className="space-y-4">
       <h2 className="text-xl font-semibold">Select Recipient</h2>

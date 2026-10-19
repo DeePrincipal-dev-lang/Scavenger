@@ -12,36 +12,24 @@
     "search": "Rechercher",
     "filter": "Filtrer",
     "export": "Exporter",
-    "download": "Télécharger"
+    "submit": "Soumettre",
+    "back": "Retour",
+    "noData": "Aucune donnée disponible"
   },
   "nav": {
-    "home": "Accueil",
     "dashboard": "Tableau de bord",
-    "analytics": "Analytique",
-    "incentives": "Incitatifs",
-    "community": "Communauté",
-    "settings": "Paramètres"
-  },
-  "waste": {
-    "title": "Gestion des déchets",
-    "register": "Enregistrer les déchets",
-    "transfer": "Transférer les déchets",
-    "details": "Détails des déchets",
-    "type": "Type de déchet",
-    "quantity": "Quantité",
-    "location": "Emplacement",
-    "status": "Statut"
+    "settings": "Paramètres",
+    "profile": "Profil"
   },
   "errors": {
     "network": "Erreur réseau",
     "unauthorized": "Accès non autorisé",
     "notFound": "Ressource introuvable",
-    "validation": "Erreur de validation",
-    "unknown": "Une erreur inconnue s'est produite"
+    "unknown": "Une erreur inconnue s'est produite",
+    "walletNotFound": "Portefeuille introuvable. Veuillez installer Freighter."
   },
   "settings": {
     "language": "Langue",
-    "theme": "Thème",
-    "notifications": "Notifications"
+    "theme": "Thème"
   }
 }

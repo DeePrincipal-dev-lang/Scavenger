@@ -5,13 +5,14 @@ import {
   type ThemeProviderProps,
 } from 'next-themes'
 
-export type ThemeName = 'light' | 'dark' | 'system'
-type ResolvedTheme = 'light' | 'dark'
+export type ThemeName = 'light' | 'dark' | 'high-contrast' | 'system'
+type ResolvedTheme = 'light' | 'dark' | 'high-contrast'
 
 interface ThemeContextValue {
   theme: ThemeName
   resolvedTheme: ResolvedTheme
   isDark: boolean
+  isHighContrast: boolean
   isReady: boolean
   setTheme: (theme: ThemeName) => void
   toggleTheme: () => void
@@ -23,9 +24,12 @@ function ThemeContextBridge({ children }: { children: ReactNode }) {
   const { theme, resolvedTheme, setTheme } = useNextTheme()
 
   const currentTheme: ThemeName =
-    theme === 'light' || theme === 'dark' || theme === 'system' ? theme : 'system'
-  const currentResolvedTheme: ResolvedTheme = resolvedTheme === 'dark' ? 'dark' : 'light'
+    theme === 'light' || theme === 'dark' || theme === 'system' || theme === 'high-contrast' ? theme : 'system'
+  let currentResolvedTheme: ResolvedTheme = 'light'
+  if (resolvedTheme === 'dark') currentResolvedTheme = 'dark'
+  if (resolvedTheme === 'high-contrast' || theme === 'high-contrast') currentResolvedTheme = 'high-contrast'
   const isDark = currentResolvedTheme === 'dark'
+  const isHighContrast = currentResolvedTheme === 'high-contrast'
 
   // Add theme-ready class after mount so transitions don't fire on initial paint
   useEffect(() => {
@@ -40,11 +44,12 @@ function ThemeContextBridge({ children }: { children: ReactNode }) {
       theme: currentTheme,
       resolvedTheme: currentResolvedTheme,
       isDark,
+      isHighContrast,
       isReady: theme !== undefined || resolvedTheme !== undefined,
       setTheme: (nextTheme) => setTheme(nextTheme),
-      toggleTheme: () => setTheme(isDark ? 'light' : 'dark'),
+      toggleTheme: () => setTheme(isDark ? 'light' : isHighContrast ? 'light' : 'dark'),
     }),
-    [currentResolvedTheme, currentTheme, isDark, resolvedTheme, setTheme, theme]
+    [currentResolvedTheme, currentTheme, isDark, isHighContrast, resolvedTheme, setTheme, theme]
   )
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
@@ -69,7 +74,7 @@ export function useTheme() {
   const context = useContext(ThemeContext)
 
   if (!context) {
-    throw new Error('useTheme must be used within ThemeProvider')
+    throw new Error('UseTheme must be used within ThemeProvider.')
   }
 
   return context

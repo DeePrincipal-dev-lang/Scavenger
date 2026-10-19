@@ -1,0 +1,119 @@
+# Cost budget alerts configuration
+
+budgets:
+  - name: scavenger-monthly-prod
+    type: COST
+    limit:
+      amount: "200"
+      unit: USD
+    time_unit: MONTHLY
+    time_period:
+      start: "2026-01-01"
+    cost_filters:
+      - type: TagKeyValue
+        key: Project
+        values: ["scavenger"]
+    notifications:
+      - type: ACTUAL
+        threshold: 50
+        threshold_type: PERCENTAGE
+        comparison_operator: GREATER_THAN
+        subscribers:
+          - address: "devops@scavenger.app"
+            type: EMAIL
+      - type: ACTUAL
+        threshold: 80
+        threshold_type: PERCENTAGE
+        comparison_operator: GREATER_THAN
+        subscribers:
+          - address: "devops@scavenger.app"
+            type: EMAIL
+          - address: "#cost-alerts"
+            type: SNS
+      - type: FORECASTED
+        threshold: 100
+        threshold_type: PERCENTAGE
+        comparison_operator: GREATER_THAN
+        subscribers:
+          - address: "devops@scavenger.app"
+            type: EMAIL
+          - address: "#cost-alerts"
+            type: SNS
+          - address: "cost-team@scavenger.app"
+            type: EMAIL
+
+  - name: scavenger-monthly-staging
+    type: COST
+    limit:
+      amount: "50"
+      unit: USD
+    time_unit: MONTHLY
+    cost_filters:
+      - type: TagKeyValue
+        key: Project
+        values: ["scavenger"]
+      - type: TagKeyValue
+        key: Environment
+        values: ["staging"]
+    notifications:
+      - type: ACTUAL
+        threshold: 80
+        threshold_type: PERCENTAGE
+        comparison_operator: GREATER_THAN
+        subscribers:
+          - address: "devops@scavenger.app"
+            type: EMAIL
+
+  - name: scavenger-monthly-dev
+    type: COST
+    limit:
+      amount: "25"
+      unit: USD
+    time_unit: MONTHLY
+    cost_filters:
+      - type: TagKeyValue
+        key: Project
+        values: ["scavenger"]
+      - type: TagKeyValue
+        key: Environment
+        values: ["dev"]
+    notifications:
+      - type: ACTUAL
+        threshold: 80
+        threshold_type: PERCENTAGE
+        comparison_operator: GREATER_THAN
+        subscribers:
+          - address: "devops@scavenger.app"
+            type: EMAIL
+
+cost_anomaly:
+  monitors:
+    - name: scavenger-anomaly
+      type: DIMENSIONAL
+      dimension: SERVICE
+      tags:
+        - key: Project
+          values: ["scavenger"]
+  subscriptions:
+    - name: scavenger-anomaly-alerts
+      frequency: DAILY
+      threshold:
+        type: ANOMALY_TOTAL_IMPACT_PERCENTAGE
+        value: 10
+        operator: GREATER_THAN_OR_EQUAL
+      subscribers:
+        - address: "devops@scavenger.app"
+          type: EMAIL
+
+cost_allocation:
+  tags:
+    - key: Project
+      values: [scavenger]
+    - key: Environment
+      values: [dev, staging, prod]
+    - key: CostCenter
+      values: [Platform, Engineering, Infrastructure]
+    - key: Team
+      values: [backend, frontend, smart-contract, devops]
+    - key: ResourceType
+      values: [compute, storage, network, security, monitoring]

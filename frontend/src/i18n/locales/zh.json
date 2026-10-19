@@ -12,36 +12,24 @@
     "search": "搜索",
     "filter": "筛选",
     "export": "导出",
-    "download": "下载"
+    "submit": "提交",
+    "back": "返回",
+    "noData": "暂无数据"
   },
   "nav": {
-    "home": "首页",
     "dashboard": "仪表板",
-    "analytics": "分析",
-    "incentives": "激励",
-    "community": "社区",
-    "settings": "设置"
-  },
-  "waste": {
-    "title": "废物管理",
-    "register": "登记废物",
-    "transfer": "转移废物",
-    "details": "废物详情",
-    "type": "废物类型",
-    "quantity": "数量",
-    "location": "位置",
-    "status": "状态"
+    "settings": "设置",
+    "profile": "个人资料"
   },
   "errors": {
     "network": "网络错误",
     "unauthorized": "未授权访问",
     "notFound": "资源未找到",
-    "validation": "验证错误",
-    "unknown": "发生未知错误"
+    "unknown": "发生未知错误",
+    "walletNotFound": "未找到钱包，请安装 Freighter。"
   },
   "settings": {
     "language": "语言",
-    "theme": "主题",
-    "notifications": "通知"
+    "theme": "主题"
   }
 }

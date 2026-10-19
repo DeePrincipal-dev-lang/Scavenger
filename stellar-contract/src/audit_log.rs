@@ -1,4 +1,5 @@
-use soroban_sdk::{contracttype, Address, Env, String, Vec};
+//! Audit logging service for tracking contract actions.
+use soroban_sdk::{contracttype, symbol_short, Address, Env, String, Vec};
 
 #[contracttype]
 #[derive(Clone)]
@@ -22,6 +23,11 @@ pub struct AuditLogFilter {
 pub struct AuditLogService;
 
 impl AuditLogService {
+    /// Log a sensitive operation by emitting a contract event.
+    ///
+    /// Using events instead of persistent storage avoids the expensive
+    /// read-modify-write cycle of a growing Vec (gas optimization #768).
+    /// Events are queryable off-chain via the Stellar RPC `getEvents` API.
     pub fn log_action(
         env: &Env,
         action: String,
@@ -29,106 +35,43 @@ impl AuditLogService {
         target: String,
         details: String,
     ) {
-        let timestamp = env.ledger().timestamp();
-        let log_id_key = soroban_sdk::symbol_short!("audit_id");
+        let log_id_key = symbol_short!("audit_id");
         let current_id: u64 = env
             .storage()
-            .persistent()
+            .instance()
             .get(&log_id_key)
-            .unwrap_or(Ok(0u64))
-            .unwrap_or(0);
-
+            .unwrap_or(0u64);
         let new_id = current_id + 1;
-        env.storage()
-            .persistent()
-            .set(&log_id_key, &new_id);
+        env.storage().instance().set(&log_id_key, &new_id);
 
         let log = AuditLog {
             id: new_id,
-            action: action.clone(),
-            actor: actor.clone(),
-            target: target.clone(),
-            timestamp,
+            action,
+            actor,
+            target,
+            timestamp: env.ledger().timestamp(),
             details,
         };
 
-        let log_key = soroban_sdk::symbol_short!("log");
-        let mut logs: Vec<AuditLog> = env
-            .storage()
-            .persistent()
-            .get(&log_key)
-            .unwrap_or(Ok(Vec::new(env)))
-            .unwrap_or_else(|_| Vec::new(env));
-
-        logs.push_back(log);
-
-        // Keep only last 10000 logs (retention policy)
-        if logs.len() > 10000 {
-            let start = logs.len() - 10000;
-            let mut new_logs = Vec::new(env);
-            for i in start..logs.len() {
-                if let Ok(log) = logs.get(i as u32) {
-                    new_logs.push_back(log);
-                }
-            }
-            env.storage().persistent().set(&log_key, &new_logs);
-        } else {
-            env.storage().persistent().set(&log_key, &logs);
-        }
+        // Emit as event — zero persistent storage write for the log body.
+        // Indexers capture these via getEvents and persist in audit_logs table.
+        env.events()
+            .publish((symbol_short!("AUDIT"), symbol_short!("log")), log);
     }
 
+    /// Returns empty Vec — audit logs are stored off-chain via events.
     pub fn get_logs(env: &Env) -> Vec<AuditLog> {
-        let log_key = soroban_sdk::symbol_short!("log");
-        env.storage()
-            .persistent()
-            .get(&log_key)
-            .unwrap_or(Ok(Vec::new(env)))
-            .unwrap_or_else(|_| Vec::new(env))
+        Vec::new(env)
     }
 
-    pub fn search_logs(env: &Env, filter: AuditLogFilter) -> Vec<AuditLog> {
-        let logs = Self::get_logs(env);
-        let mut results = Vec::new(env);
-
-        for i in 0..logs.len() {
-            if let Ok(log) = logs.get(i) {
-                let mut matches = true;
-
-                if let Some(ref action) = filter.action {
-                    if log.action != *action {
-                        matches = false;
-                    }
-                }
-
-                if let Some(ref actor) = filter.actor {
-                    if log.actor != *actor {
-                        matches = false;
-                    }
-                }
-
-                if let Some(start) = filter.start_time {
-                    if log.timestamp < start {
-                        matches = false;
-                    }
-                }
-
-                if let Some(end) = filter.end_time {
-                    if log.timestamp > end {
-                        matches = false;
-                    }
-                }
-
-                if matches {
-                    results.push_back(log);
-                }
-            }
-        }
-
-        results
+    /// Returns empty Vec — use off-chain event queries for filtering.
+    pub fn search_logs(env: &Env, _filter: AuditLogFilter) -> Vec<AuditLog> {
+        Vec::new(env)
     }
 
+    /// Returns empty Vec — use off-chain event queries for export.
     pub fn export_logs(env: &Env) -> Vec<AuditLog> {
-        Self::get_logs(env)
+        Vec::new(env)
     }
 }
 
@@ -138,14 +81,14 @@ mod tests {
 
     #[test]
     fn test_audit_log_creation() {
-        // Basic structure test
+        let env = soroban_sdk::Env::default();
         let log = AuditLog {
             id: 1,
-            action: String::from_slice(&soroban_sdk::Env::default(), "test"),
-            actor: Address::generate(&soroban_sdk::Env::default()),
-            target: String::from_slice(&soroban_sdk::Env::default(), "target"),
+            action: String::from_str(&env, "test"),
+            actor: Address::generate(&env),
+            target: String::from_str(&env, "target"),
             timestamp: 1000,
-            details: String::from_slice(&soroban_sdk::Env::default(), "details"),
+            details: String::from_str(&env, "details"),
         };
         assert_eq!(log.id, 1);
     }

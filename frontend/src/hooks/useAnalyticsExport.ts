@@ -1,29 +1,31 @@
-import { useCallback } from 'react';
+import { useCallback } from 'react'
+import {
+  exportAnalyticsToCSV,
+  PDFExporter,
+  triggerDownload,
+  type AnalyticsMonthlyRow,
+} from '@/lib/exportImport'
+
+const MONTHLY_DATA: AnalyticsMonthlyRow[] = [
+  { month: 'Jan', plastic: 45, metal: 30, glass: 25 },
+  { month: 'Feb', plastic: 52, metal: 35, glass: 28 },
+  { month: 'Mar', plastic: 61, metal: 42, glass: 33 },
+  { month: 'Apr', plastic: 58, metal: 38, glass: 31 },
+  { month: 'May', plastic: 67, metal: 45, glass: 36 },
+  { month: 'Jun', plastic: 73, metal: 51, glass: 42 },
+]
 
 export function useAnalyticsExport() {
   const exportToCSV = useCallback(() => {
-    const data = [
-      ['Date', 'Waste Type', 'Quantity', 'Status'],
-      ['2024-01-15', 'Plastic', '150', 'Recycled'],
-      ['2024-01-16', 'Metal', '200', 'Processed'],
-      ['2024-01-17', 'Glass', '100', 'Recycled'],
-    ];
-
-    const csv = data.map(row => row.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `analytics-${Date.now()}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
-  }, []);
+    const blob = exportAnalyticsToCSV(MONTHLY_DATA)
+    triggerDownload(blob, `analytics-${Date.now()}.csv`)
+  }, [])
 
   const exportToPDF = useCallback(() => {
-    // Placeholder for PDF export functionality
-    console.log('PDF export would be implemented with a library like jsPDF');
-    alert('PDF export feature - would use jsPDF library');
-  }, []);
+    const exporter = new PDFExporter()
+    exporter.exportAnalyticsMonthly(MONTHLY_DATA, { title: 'Analytics Report' })
+    exporter.save(`analytics-${Date.now()}.pdf`)
+  }, [])
 
-  return { exportToCSV, exportToPDF };
+  return { exportToCSV, exportToPDF }
 }

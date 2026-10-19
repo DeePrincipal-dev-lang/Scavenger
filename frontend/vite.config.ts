@@ -10,11 +10,42 @@ const dirname = typeof __dirname !== 'undefined' ? __dirname : path.dirname(file
 
 // More info at: https://storybook.js.org/docs/next/writing-tests/integrations/vitest-addon
 export default defineConfig({
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'stellar': ['@stellar/stellar-sdk', '@stellar/freighter-api'],
+          'ui': ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-select'],
+          'query': ['@tanstack/react-query', '@tanstack/react-query-devtools'],
+          'map': ['leaflet', 'react-leaflet', 'leaflet.markercluster'],
+          'firebase': ['firebase'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 1000,
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true,
+      },
+    },
+  },
   plugins: [react(), VitePWA({
     registerType: 'autoUpdate',
     workbox: {
       globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
       runtimeCaching: [{
+        urlPattern: /\/api\/(participants|wastes|metrics|incentives|stats)/,
+        handler: 'NetworkFirst',
+        options: {
+          cacheName: 'api-response-cache',
+          expiration: {
+            maxEntries: 200,
+            maxAgeSeconds: 60 // 1 minute
+          },
+          networkTimeoutSeconds: 5,
+        }
+      }, {
         urlPattern: /^https:\/\/.*\.stellar\.org\/.*/i,
         handler: 'NetworkFirst',
         options: {
@@ -37,6 +68,16 @@ export default defineConfig({
           expiration: {
             maxEntries: 50,
             maxAgeSeconds: 60 * 60 * 24 * 30 // 30 days
+          }
+        }
+      }, {
+        urlPattern: /\/api\/.*/i,
+        handler: 'NetworkFirst',
+        options: {
+          cacheName: 'backend-api-cache',
+          expiration: {
+            maxEntries: 50,
+            maxAgeSeconds: 60
           }
         }
       }]
@@ -63,10 +104,18 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
-      '@pages': path.resolve(__dirname, './src/pages'),
-      '@components': path.resolve(__dirname, './src/components'),
-      '@hooks': path.resolve(__dirname, './src/hooks'),
-      '@lib': path.resolve(__dirname, './src/lib')
+      '@/components': path.resolve(__dirname, './src/components'),
+      '@/pages': path.resolve(__dirname, './src/pages'),
+      '@/hooks': path.resolve(__dirname, './src/hooks'),
+      '@/lib': path.resolve(__dirname, './src/lib'),
+      '@/context': path.resolve(__dirname, './src/context'),
+      '@/types': path.resolve(__dirname, './src/types'),
+      '@/config': path.resolve(__dirname, './src/config'),
+      '@/stories': path.resolve(__dirname, './src/stories'),
+      '@/api': path.resolve(__dirname, './src/api'),
+      '@/assets': path.resolve(__dirname, './src/assets'),
+      '@/i18n': path.resolve(__dirname, './src/i18n'),
+      '@/test-utils': path.resolve(__dirname, './src/test-utils')
     }
   },
   test: {
@@ -75,8 +124,31 @@ export default defineConfig({
       test: {
         globals: true,
         environment: 'jsdom',
-        setupFiles: ['./src/test/setup.tsx'],
-        css: false
+        setupFiles: ['./src/test-utils/setup.tsx'],
+        css: false,
+        // Snapshot tests for design-system component variants (issue #1290).
+        // Snapshots are stored in __snapshots__ directories next to each test.
+        // To update snapshots after an intentional visual change, run:
+        //   npx vitest run -u frontend/src/design-system
+        // Review the updated .snap files before committing them.
+        include: ['src/**/*.{test,spec}.{ts,tsx}'],
+        coverage: {
+          provider: 'v8',
+          reporter: ['text', 'json', 'html', 'lcov'],
+          include: ['src/**/*.{ts,tsx}'],
+          exclude: [
+            'src/**/*.d.ts',
+            'src/**/*.test.{ts,tsx}',
+            'src/**/*.spec.{ts,tsx}',
+            'src/test-utils/**',
+            'src/**/*.stories.tsx',
+          ],
+          lines: 85,
+          functions: 85,
+          branches: 85,
+          statements: 85,
+          perFile: true,
+        },
       }
     }, {
       extends: true,

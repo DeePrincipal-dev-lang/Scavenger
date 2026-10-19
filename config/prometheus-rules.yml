@@ -58,3 +58,42 @@ groups:
         annotations:
           summary: "Low disk space"
           description: "Only {{ $value | humanizePercentage }} disk space remaining"
+
+  - name: service_availability
+    interval: 30s
+    rules:
+      - alert: ServiceDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "Service {{ $labels.job }} on {{ $labels.instance }} has been unreachable for 2 minutes"
+
+      - alert: PrometheusTargetMissing
+        expr: up == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Prometheus target missing: {{ $labels.job }}"
+          description: "Target {{ $labels.instance }} for job {{ $labels.job }} has been missing for 5 minutes"
+
+      - alert: IndexerDown
+        expr: up{job="indexer-metrics"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Indexer service is down"
+          description: "Indexer at {{ $labels.instance }} has been down for 2 minutes"
+
+      - alert: ContractServiceDown
+        expr: up{job="contract-metrics"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Contract service is down"
+          description: "Contract service at {{ $labels.instance }} has been down for 2 minutes"

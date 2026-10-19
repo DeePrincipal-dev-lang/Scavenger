@@ -180,6 +180,23 @@ fn test_participant_stats_update() {
 
 ### TypeScript/React Frontend Tests
 
+#### Test Location Convention
+
+Frontend tests are **co-located** with the code they test. Name the file `<Source>.test.tsx` (or `.test.ts`) and put it in the same folder as the source file:
+
+```
+src/components/ui/Button.tsx
+src/components/ui/Button.test.tsx
+src/pages/SettingsPage.tsx
+src/pages/SettingsPage.test.tsx
+```
+
+Rules:
+
+- Do not create `__tests__/` folders under `src/`.
+- Shared test helpers (`setup.tsx`, MSW handlers) live in `frontend/src/test-utils/`. Import them with the `@/test-utils/*` alias.
+- Vitest discovers `src/**/*.test.{ts,tsx}`, so no config change is needed when you add a test.
+
 #### Test Structure
 
 ```typescript

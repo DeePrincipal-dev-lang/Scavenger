@@ -87,17 +87,7 @@ impl SendGridEmailService {
 #[async_trait::async_trait]
 impl EmailService for SendGridEmailService {
     async fn send_transactional(&self, email: TransactionalEmail) -> Result<String, EmailError> {
-        self.validate_email(&email.recipient).map_err(|e| {
-            log::warn!(
-                service = "email",
-                op = "send_transactional",
-                outcome = "error",
-                template = %email.template,
-                error = %e;
-                "send_transactional validation failed"
-            );
-            e
-        })?;
+        self.validate_email(&email.recipient)?;
 
         let client = reqwest::Client::new();
         let body = serde_json::json!({
@@ -213,14 +203,6 @@ impl EmailService for SendGridEmailService {
             );
             Ok(message_id)
         } else {
-            log::error!(
-                service = "email",
-                op = "send_digest",
-                outcome = "error",
-                digest_type = %email.digest_type,
-                status = %response.status();
-                "SendGrid returned non-success status for digest"
-            );
             Err(EmailError::ServiceError("Failed to send digest".to_string()))
         }
     }

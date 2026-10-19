@@ -192,6 +192,30 @@ import { Checkbox } from '@/components/ui/Checkbox'
 
 ---
 
+## Component File Structure
+
+Every component lives in its own folder named after the component, rather than as a loose file alongside unrelated siblings:
+
+```
+ComponentName/
+  index.tsx                    # implementation + export(s) — this is the component
+  ComponentName.test.tsx        # colocated unit test (if the component has one)
+  ComponentName.stories.tsx     # colocated Storybook story (if the component has one)
+  ComponentName.types.ts        # extracted prop/domain types — only when they're too
+                                 # large to inline comfortably in index.tsx
+```
+
+Rules:
+
+- **`index.tsx` is the component.** This keeps import paths unchanged — `@/components/ui/Badge` still resolves whether `Badge` is a file or a folder with an `index.tsx`, so consumers never need to update imports when a component migrates.
+- **Tests and stories are colocated in the component's folder**, not in a separate `__tests__/` subfolder or a top-level `tests/` directory. A story imports its component via `./index`; a colocated test does the same.
+- **No CSS module or styled-components file** — this project styles exclusively with Tailwind utility classes, so there's no separate stylesheet to colocate.
+- **Types stay inline in `index.tsx` by default.** Only pull them into `ComponentName.types.ts` when the component is complex enough that a separate file measurably helps readability (see `ApiPlayground/types.ts` for a precedent).
+
+This convention has been applied to `components/ui/Badge/`, `components/ui/EmptyState/`, `components/ui/StatCard/`, `components/ui/Checkbox/`, `components/ui/Switch/`, `components/ui/VerificationBadge/`, `components/ui/SearchBar/`, `components/OfflineStatus/`, `components/analytics/CarbonImpactCard/`, and `components/qr/QRGenerator/`. Older components not yet migrated keep their existing flat-file or `__tests__/`-subfolder layout until they're next touched — there's no wholesale rewrite planned; components move to this structure incrementally as they're edited.
+
+---
+
 ## Dark Mode
 
 Dark mode is driven by the `.dark` class on `<html>`. The `ThemeProvider` in `src/context/ThemeProvider.tsx` manages this via `next-themes`.
