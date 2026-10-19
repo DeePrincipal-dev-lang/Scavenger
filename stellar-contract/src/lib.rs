@@ -3,6 +3,7 @@
 mod errors;
 mod events;
 mod test_transfer_path_validation;
+mod test_factories;
 mod types;
 mod validation;
 
