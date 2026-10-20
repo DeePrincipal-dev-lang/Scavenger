@@ -26,12 +26,57 @@ npm run visual:chromium
 # Open HTML diff report after a failure
 npm run visual:report
 
-# Update baselines after intentional UI changes
+# Update baselines — all three projects at once
 npm run visual:update
 
-# Update a single project
-./scripts/update-visual-baselines.sh chromium   # or firefox / mobile
+# Update a single project (preferred — limits scope of change)
+npm run visual:update:chromium   # or :firefox / :mobile
+./scripts/update-visual-baselines.sh chromium   # same, via shell script
 ```
+
+## Snapshot Update Policy
+
+### Who may update snapshots
+
+Snapshots may only be updated by the **author of the PR that introduces the
+intentional UI change**.  Reviewers must not regenerate snapshots on behalf of
+a contributor.
+
+### Required evidence
+
+A snapshot update PR must include in its description:
+
+1. **Reason** — which UI change caused the diff and why it is intentional.
+2. **Diff review** — confirmation that the contributor ran `npm run visual:report`
+   and inspected every changed screenshot side-by-side.
+3. **Scope** — only the affected project(s) were updated.  Use the per-project
+   scripts (`npm run visual:update:chromium`, `:firefox`, `:mobile`) instead of
+   `npm run visual:update` when only one browser is affected.
+4. **No unrelated changes** — snapshots for pages you did not modify must be
+   identical to the previous baseline.
+
+### Updating only one project
+
+Cross-browser diffs are a common source of noise.  When a change only affects
+one browser, update that project's baselines in isolation:
+
+```bash
+npm run visual:update:chromium
+git add e2e/__snapshots__/visual-chromium
+git commit -m "chore: update chromium visual baselines for <feature>"
+```
+
+Repeat for `:firefox` or `:mobile` only if those projects are also affected.
+
+### Dynamic content masking
+
+The `visual-regression.spec.ts` file masks known dynamic regions (wallet
+addresses, timestamps, transaction IDs) using the Playwright `mask` option so
+they never cause spurious diffs.  The list of masked selectors lives in the
+`DYNAMIC_SELECTORS` constant at the top of that file.
+
+If a new dynamic region causes a flaky test, add its CSS selector to
+`DYNAMIC_SELECTORS` rather than re-generating the baseline.
 
 ## Baseline workflow
 

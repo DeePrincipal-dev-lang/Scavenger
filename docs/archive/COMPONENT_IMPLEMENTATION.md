@@ -222,6 +222,57 @@ interface Props {
 - Add budget recommendations
 - Implement draft saving
 
+## Adding a Story Test
+
+Stories are run as interaction and accessibility tests via the
+`@storybook/addon-vitest` Vitest project configured in `frontend/vitest.config.ts`.
+
+### How to add a story test
+
+1. **Create or open the `.stories.tsx` file** for your component (e.g.,
+   `src/components/MyWidget.stories.tsx`).
+
+2. **Import the testing helpers** at the top of the file:
+   ```tsx
+   import { userEvent, within, expect } from '@storybook/test'
+   ```
+
+3. **Add a `play` function** to any story that should be tested:
+   ```tsx
+   export const Default: Story = {
+     args: { label: 'Click me' },
+     play: async ({ canvasElement }) => {
+       const canvas = within(canvasElement)
+       const btn = canvas.getByRole('button', { name: /click me/i })
+       await expect(btn).toBeInTheDocument()
+       await userEvent.click(btn)
+       // assert post-interaction state
+       await expect(canvas.getByText(/done/i)).toBeInTheDocument()
+     },
+   }
+   ```
+
+4. **Accessibility violations fail automatically.** The `a11y` addon is
+   configured with `{ test: 'error' }` in `.storybook/preview.ts`, so any
+   serious or critical axe-core violation will fail the story test.
+
+5. **Run story tests** as part of the regular test suite:
+   ```bash
+   pnpm --filter frontend test
+   ```
+   Or target the Storybook project only:
+   ```bash
+   pnpm --filter frontend vitest --project storybook
+   ```
+
+### Rules for story tests
+
+- Use `getByRole` and other accessible queries (from `@testing-library/dom`)
+  rather than CSS selectors or `data-testid`.
+- Keep each `play` function focused on one interaction scenario.
+- Do not add `play` functions to purely visual/documentation stories — keep
+  those as pure `args`-only stories and test interaction in a dedicated story.
+
 ## Related Components
 
 - `Badge` - Status indicators
