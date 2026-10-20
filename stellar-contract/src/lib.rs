@@ -7,6 +7,8 @@
 // without importing through lib.rs indirection.
 pub mod errors;
 mod events;
+mod test_transfer_path_validation;
+mod test_factories;
 mod types;
 pub mod types_domains;
 mod validation;
@@ -102,6 +104,9 @@ mod test_transfer_path_validation;
 mod test_pause_coverage;
 #[path = "../../contracts/scavenger/src/test_edge_cases.rs"]
 mod test_edge_cases_coverage;
+
+#[cfg(test)]
+mod validation_properties;
 
 pub use errors::Error;
 // Consolidated, deduplicated pub use block (fixes duplicate symbol exports)
