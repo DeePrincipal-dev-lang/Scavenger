@@ -97,6 +97,13 @@ tokio-test = "=0.4.4"
 # #1481: property-based tests for the pure geometry helpers in
 # services/geospatial.rs (tests/geospatial_geometry_proptest.rs).
 proptest = "1.4.0"
+# #1530: integration tests that start real Postgres and Redis containers.
+# testcontainers 0.23 ships the `postgres` and `redis` pre-built images.
+testcontainers = "=0.23.1"
+testcontainers-modules = { version = "=0.11.4", features = ["postgres", "redis"] }
+# #1530: tokio-postgres client used in the common TestEnv fixture and
+# integration tests to verify real query behaviour.
+tokio-postgres = "=0.7.12"
 
 [lib]
 name = "scavenger_backend"
