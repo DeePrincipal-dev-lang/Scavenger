@@ -1,9 +1,6 @@
-import { Card } from '../../ui/Card';
-import { WasteType } from '@/api/types';
-
-interface ReviewStepProps {
-  formData: any;
-}
+import { Card } from '../../ui/Card'
+import { WasteType } from '@/api/types'
+import { ReviewStepProps } from '../types'
 
 const WASTE_TYPE_LABELS: Record<WasteType, string> = {
   [WasteType.Paper]: 'Paper',

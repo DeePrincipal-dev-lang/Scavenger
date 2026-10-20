@@ -2,11 +2,24 @@
 
 Welcome to the Scavngr codebase. This guide gets you from zero to a running local environment and your first pull request.
 
+> **This is the canonical setup guide.** Setup steps for the contract, indexer,
+> frontend, backend, and mobile app all live here. Component READMEs cover what is
+> specific to that component and link back here for setup rather than repeating it.
+> If you find setup instructions duplicated elsewhere, that is a bug — please replace
+> them with a link to this guide.
+
 ---
 
 ## Table of Contents
 
 1. [Development Environment Setup](#development-environment-setup)
+   - [Prerequisites](#prerequisites)
+   - [Path A: Docker (recommended)](#path-a-docker-recommended)
+   - [Path B: Running components directly](#path-b-running-components-directly)
+   - [Environment Variables](#environment-variables)
+   - [Local Run Commands](#local-run-commands)
+   - [Verifying Setup](#verifying-setup)
+   - [Setup Troubleshooting](#setup-troubleshooting)
 2. [Project Structure Overview](#project-structure-overview)
 3. [Development Workflow](#development-workflow)
 4. [Coding Standards](#coding-standards)
@@ -20,84 +33,8 @@ Welcome to the Scavngr codebase. This guide gets you from zero to a running loca
 
 ## Development Environment Setup
 
-### Required Tools
-
-| Tool | Version | Install |
-|---|---|---|
-| Rust | stable (1.70+) | `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \| sh` |
-| wasm32 target | — | `rustup target add wasm32-unknown-unknown` |
-| Soroban CLI | latest | `cargo install --locked soroban-cli` |
-| Node.js | 18+ | https://nodejs.org (LTS) |
-| Docker Desktop | 24+ | https://docker.com |
-| Git | 2.40+ | https://git-scm.com |
-
-### Recommended VS Code Extensions
-
-```json
-{
-  "recommendations": [
-    "rust-lang.rust-analyzer",
-    "tamasfe.even-better-toml",
-    "bradlc.vscode-tailwindcss",
-    "esbenp.prettier-vscode",
-    "dbaeumer.vscode-eslint",
-    "ms-azuretools.vscode-docker"
-  ]
-}
-```
-
-### First-Time Setup
-
-```bash
-# 1. Fork the repo on GitHub, then clone your fork
-git clone https://github.com/YOUR_USERNAME/Scavenger.git
-cd Scavenger
-
-# 2. Add upstream remote
-git remote add upstream https://github.com/Xoulomon/Scavenger.git
-
-# 3. Copy environment template
-cp frontend/.env.example .env
-
-# 4. Start all services (Stellar standalone + backend + frontend + DB)
-docker compose up -d
-
-# 5. Wait ~30 seconds for Stellar to initialise, then check health
-docker compose ps
-curl http://localhost:8000/health  # Stellar standalone
-curl http://localhost:8080/health  # Backend API
-curl http://localhost:5173         # Frontend
-
-# 6. Deploy the contract locally (see DEV_ENVIRONMENT.md for full details)
-soroban keys generate local-deployer --network standalone
-curl "http://localhost:8000/friendbot?addr=$(soroban keys address local-deployer)"
-
-cd stellar-contract
-cargo build --target wasm32-unknown-unknown --release
-soroban contract deploy \
-  --wasm target/wasm32-unknown-unknown/release/stellar_scavngr_contract.optimized.wasm \
-  --source local-deployer \
-  --network standalone
-```
-
-### Verifying Setup
-
-```bash
-# Contract compiles
-cargo build --target wasm32-unknown-unknown --release
-
-# All tests pass
-cargo test
-
-# Frontend starts
-cd frontend && npm install && npm run dev
-# Open http://localhost:5173
-
-# Indexer runs
-cd indexer && npm install && npm run dev
-```
-
----
+Setup instructions live in one place: **[docs/getting-started.md](./getting-started.md)**.
+Follow that guide for prerequisites, environment files, Docker, and per-service commands.
 
 ## Project Structure Overview
 
@@ -147,7 +84,7 @@ Scavenger/
 | `stellar-contract/src/validation.rs` | Shared validation utilities |
 | `frontend/src/api/` | How the frontend talks to the contract |
 | `docs/ARCHITECTURE.md` | System design and data flow |
-| `docs/API_DOCUMENTATION.md` | All public contract functions documented |
+| `docs/API_REFERENCE.md` | All public contract functions documented |
 
 ---
 

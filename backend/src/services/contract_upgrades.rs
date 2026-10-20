@@ -1,3 +1,7 @@
+//! Upgrade planning, execution and verification live in this file, in that order. Splitting it into
+//! `plan.rs`, `execute.rs` and `verify.rs` is a follow-up; each phase is tested separately.
+
+use chrono::{DateTime, Utc};
 /// #805 - Automated Contract Upgrade Service
 /// Upgrade automation, validation, migration, rollback, and testing for Soroban contracts.
 use serde::{Deserialize, Serialize};
@@ -5,7 +9,6 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 use thiserror::Error;
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 // ── Errors ────────────────────────────────────────────────────────────────────
 
@@ -171,7 +174,10 @@ impl UpgradeValidator for DefaultValidator {
                 message: if plan.to_version > plan.from_version {
                     "Version is correctly incremented".to_string()
                 } else {
-                    format!("to_version {} must be > from_version {}", plan.to_version, plan.from_version)
+                    format!(
+                        "to_version {} must be > from_version {}",
+                        plan.to_version, plan.from_version
+                    )
                 },
             },
             ValidationCheck {
@@ -257,12 +263,7 @@ impl ContractUpgradeService {
         self.plans.lock().unwrap().insert(plan.id.clone(), plan);
     }
 
-    fn transition(
-        &self,
-        plan: &mut UpgradePlan,
-        new_status: UpgradeStatus,
-        event: &str,
-    ) -> Result<(), UpgradeError> {
+    fn transition(&self, plan: &mut UpgradePlan, new_status: UpgradeStatus, event: &str) -> Result<(), UpgradeError> {
         if plan.status.is_terminal() {
             return Err(UpgradeError::InvalidTransition {
                 from: plan.status.as_str().to_string(),
@@ -366,7 +367,11 @@ impl ContractUpgradeService {
             }
         }
 
-        let result = MigrationResult { steps_completed: completed, steps_failed: failed, errors };
+        let result = MigrationResult {
+            steps_completed: completed,
+            steps_failed: failed,
+            errors,
+        };
 
         let mut plan = plan;
         plan.migration_result = Some(result.clone());
@@ -422,10 +427,7 @@ impl ContractUpgradeService {
             state_snapshot,
             created_at: Utc::now(),
         };
-        self.snapshots
-            .lock()
-            .unwrap()
-            .insert(plan_id.to_string(), snap.clone());
+        self.snapshots.lock().unwrap().insert(plan_id.to_string(), snap.clone());
         snap
     }
 
@@ -472,14 +474,7 @@ mod tests {
     }
 
     fn simple_plan(svc: &ContractUpgradeService) -> UpgradePlan {
-        svc.create_plan(
-            "v2 upgrade",
-            "Add new storage fields",
-            1,
-            2,
-            "abc123wasmhash",
-            None,
-        )
+        svc.create_plan("v2 upgrade", "Add new storage fields", 1, 2, "abc123wasmhash", None)
     }
 
     #[tokio::test]
@@ -490,10 +485,7 @@ mod tests {
 
         let report = svc.validate(&plan.id).await.unwrap();
         assert!(report.all_passed);
-        assert_eq!(
-            svc.get_plan(&plan.id).unwrap().status,
-            UpgradeStatus::MigrationReady
-        );
+        assert_eq!(svc.get_plan(&plan.id).unwrap().status, UpgradeStatus::MigrationReady);
     }
 
     #[tokio::test]
@@ -529,10 +521,7 @@ mod tests {
         assert_eq!(result.steps_failed, 0);
         assert!(state.contains_key("new_key"));
         assert!(!state.contains_key("old_key"));
-        assert_eq!(
-            svc.get_plan(&plan.id).unwrap().status,
-            UpgradeStatus::Deploying
-        );
+        assert_eq!(svc.get_plan(&plan.id).unwrap().status, UpgradeStatus::Deploying);
     }
 
     #[tokio::test]
@@ -564,10 +553,7 @@ mod tests {
         let mut state = HashMap::new();
         svc.run_migration(&plan.id, &mut state).await.unwrap();
         svc.complete_upgrade(&plan.id).unwrap();
-        assert_eq!(
-            svc.get_plan(&plan.id).unwrap().status,
-            UpgradeStatus::Completed
-        );
+        assert_eq!(svc.get_plan(&plan.id).unwrap().status, UpgradeStatus::Completed);
     }
 
     #[tokio::test]
@@ -586,10 +572,7 @@ mod tests {
         let snap = svc.rollback(&plan.id, &mut state).unwrap();
         assert_eq!(snap.from_version, 1);
         assert_eq!(state["key"], "original_val");
-        assert_eq!(
-            svc.get_plan(&plan.id).unwrap().status,
-            UpgradeStatus::RolledBack
-        );
+        assert_eq!(svc.get_plan(&plan.id).unwrap().status, UpgradeStatus::RolledBack);
     }
 
     #[tokio::test]
@@ -616,5 +599,265 @@ mod tests {
         simple_plan(&svc);
         simple_plan(&svc);
         assert_eq!(svc.list_plans().len(), 2);
+    }
+
+    #[test]
+    fn test_upgrade_status_is_terminal() {
+        assert!(UpgradeStatus::Completed.is_terminal());
+        assert!(UpgradeStatus::Failed.is_terminal());
+        assert!(UpgradeStatus::RolledBack.is_terminal());
+        assert!(!UpgradeStatus::Pending.is_terminal());
+        assert!(!UpgradeStatus::Validating.is_terminal());
+        assert!(!UpgradeStatus::MigrationReady.is_terminal());
+        assert!(!UpgradeStatus::Deploying.is_terminal());
+    }
+
+    #[test]
+    fn test_upgrade_status_as_str() {
+        assert_eq!(UpgradeStatus::Pending.as_str(), "pending");
+        assert_eq!(UpgradeStatus::Validating.as_str(), "validating");
+        assert_eq!(UpgradeStatus::MigrationReady.as_str(), "migration_ready");
+        assert_eq!(UpgradeStatus::Deploying.as_str(), "deploying");
+        assert_eq!(UpgradeStatus::Completed.as_str(), "completed");
+        assert_eq!(UpgradeStatus::Failed.as_str(), "failed");
+        assert_eq!(UpgradeStatus::RolledBack.as_str(), "rolled_back");
+    }
+
+    #[tokio::test]
+    async fn test_validation_missing_wasm_hash() {
+        let svc = make_service();
+        let plan = svc.create_plan("no hash", "desc", 1, 2, "", None);
+        let err = svc.validate(&plan.id).await;
+        assert!(matches!(err, Err(UpgradeError::ValidationFailed(_))));
+    }
+
+    #[tokio::test]
+    async fn test_validation_report_all_checks() {
+        let svc = make_service();
+        let plan = simple_plan(&svc);
+        let report = svc.validate(&plan.id).await.unwrap();
+        assert!(report.all_passed);
+        assert_eq!(report.checks.len(), 3);
+    }
+
+    #[tokio::test]
+    async fn test_migration_copy_step() {
+        let svc = make_service();
+        let migration = MigrationPlan {
+            from_version: 1,
+            to_version: 2,
+            steps: vec![MigrationStep {
+                step_id: "c1".to_string(),
+                description: "Copy key".to_string(),
+                storage_key: "key".to_string(),
+                transform: MigrationTransform::Copy,
+            }],
+        };
+        let plan = svc.create_plan("copy", "copy key", 1, 2, "hash", Some(migration));
+        svc.validate(&plan.id).await.unwrap();
+
+        let mut state = HashMap::from([("key".to_string(), "value".to_string())]);
+        let result = svc.run_migration(&plan.id, &mut state).await.unwrap();
+        assert_eq!(result.steps_completed, 1);
+        assert_eq!(result.steps_failed, 0);
+        assert_eq!(state["key"], "value");
+    }
+
+    #[tokio::test]
+    async fn test_migration_custom_handler() {
+        let svc = make_service();
+        let migration = MigrationPlan {
+            from_version: 1,
+            to_version: 2,
+            steps: vec![MigrationStep {
+                step_id: "custom1".to_string(),
+                description: "Custom handler".to_string(),
+                storage_key: "key".to_string(),
+                transform: MigrationTransform::Custom("my_handler".to_string()),
+            }],
+        };
+        let plan = svc.create_plan("custom", "custom transform", 1, 2, "hash", Some(migration));
+        svc.validate(&plan.id).await.unwrap();
+
+        let mut state = HashMap::new();
+        let result = svc.run_migration(&plan.id, &mut state).await.unwrap();
+        assert_eq!(result.steps_completed, 1);
+    }
+
+    #[tokio::test]
+    async fn test_migration_rename_missing_key() {
+        let svc = make_service();
+        let migration = MigrationPlan {
+            from_version: 1,
+            to_version: 2,
+            steps: vec![MigrationStep {
+                step_id: "r1".to_string(),
+                description: "Rename missing key".to_string(),
+                storage_key: "missing".to_string(),
+                transform: MigrationTransform::Rename("new".to_string()),
+            }],
+        };
+        let plan = svc.create_plan("rename_miss", "missing key", 1, 2, "hash", Some(migration));
+        svc.validate(&plan.id).await.unwrap();
+
+        let mut state = HashMap::new();
+        let result = svc.run_migration(&plan.id, &mut state).await.unwrap();
+        assert_eq!(result.steps_completed, 0);
+        assert_eq!(result.steps_failed, 1);
+        assert!(!result.errors.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_migration_multiple_steps() {
+        let svc = make_service();
+        let migration = MigrationPlan {
+            from_version: 1,
+            to_version: 2,
+            steps: vec![
+                MigrationStep {
+                    step_id: "s1".to_string(),
+                    description: "Step 1".to_string(),
+                    storage_key: "old1".to_string(),
+                    transform: MigrationTransform::Rename("new1".to_string()),
+                },
+                MigrationStep {
+                    step_id: "s2".to_string(),
+                    description: "Step 2".to_string(),
+                    storage_key: "old2".to_string(),
+                    transform: MigrationTransform::Delete,
+                },
+            ],
+        };
+        let plan = svc.create_plan("multi", "multiple steps", 1, 2, "hash", Some(migration));
+        svc.validate(&plan.id).await.unwrap();
+
+        let mut state = HashMap::from([
+            ("old1".to_string(), "val1".to_string()),
+            ("old2".to_string(), "val2".to_string()),
+        ]);
+        let result = svc.run_migration(&plan.id, &mut state).await.unwrap();
+        assert_eq!(result.steps_completed, 2);
+        assert_eq!(result.steps_failed, 0);
+    }
+
+    #[test]
+    fn test_cannot_complete_non_deploying() {
+        let svc = make_service();
+        let plan = simple_plan(&svc);
+        let err = svc.complete_upgrade(&plan.id);
+        assert!(matches!(err, Err(UpgradeError::InvalidTransition { .. })));
+    }
+
+    #[tokio::test]
+    async fn test_cannot_transition_from_terminal_state() {
+        let svc = make_service();
+        let plan = simple_plan(&svc);
+        svc.validate(&plan.id).await.unwrap();
+        let mut state = HashMap::new();
+        svc.run_migration(&plan.id, &mut state).await.unwrap();
+        svc.complete_upgrade(&plan.id).unwrap();
+
+        // Try to validate again
+        let err = svc.validate(&plan.id).await;
+        assert!(matches!(err, Err(UpgradeError::InvalidTransition { .. })));
+    }
+
+    #[test]
+    fn test_get_nonexistent_plan() {
+        let svc = make_service();
+        assert!(svc.get_plan("nonexistent").is_none());
+    }
+
+    #[test]
+    fn test_snapshot_creation() {
+        let svc = make_service();
+        let plan = simple_plan(&svc);
+        let state = HashMap::from([("key".to_string(), "value".to_string())]);
+        let snap = svc.create_snapshot(&plan.id, 1, "old_hash", state.clone());
+        assert_eq!(snap.from_version, 1);
+        assert_eq!(snap.wasm_hash, "old_hash");
+    }
+
+    #[test]
+    fn test_get_snapshot() {
+        let svc = make_service();
+        let plan = simple_plan(&svc);
+        let state = HashMap::from([("key".to_string(), "value".to_string())]);
+        svc.create_snapshot(&plan.id, 1, "hash", state);
+        let snap = svc.get_snapshot(&plan.id).unwrap();
+        assert_eq!(snap.plan_id, plan.id);
+    }
+
+    #[test]
+    fn test_snapshot_state_isolation() {
+        let svc = make_service();
+        let plan1 = simple_plan(&svc);
+        let plan2 = simple_plan(&svc);
+
+        let state1 = HashMap::from([("key".to_string(), "val1".to_string())]);
+        let state2 = HashMap::from([("key".to_string(), "val2".to_string())]);
+
+        svc.create_snapshot(&plan1.id, 1, "hash1", state1);
+        svc.create_snapshot(&plan2.id, 1, "hash2", state2);
+
+        let snap1 = svc.get_snapshot(&plan1.id).unwrap();
+        let snap2 = svc.get_snapshot(&plan2.id).unwrap();
+
+        assert_eq!(snap1.state_snapshot["key"], "val1");
+        assert_eq!(snap2.state_snapshot["key"], "val2");
+    }
+
+    #[test]
+    fn test_plan_events_creation() {
+        let svc = make_service();
+        let plan = simple_plan(&svc);
+        assert!(!plan.events.is_empty());
+        assert_eq!(plan.events[0].event, "Plan created");
+    }
+
+    #[tokio::test]
+    async fn test_validation_report_timestamp() {
+        let svc = make_service();
+        let plan = simple_plan(&svc);
+        let before = Utc::now();
+        let report = svc.validate(&plan.id).await.unwrap();
+        let after = Utc::now();
+        assert!(before <= report.validated_at && report.validated_at <= after);
+    }
+
+    #[tokio::test]
+    async fn test_plan_updated_at_changes() {
+        let svc = make_service();
+        let plan = simple_plan(&svc);
+        let initial_updated = plan.updated_at;
+
+        svc.validate(&plan.id).await.unwrap();
+        let plan_after = svc.get_plan(&plan.id).unwrap();
+        assert!(plan_after.updated_at > initial_updated);
+    }
+
+    #[test]
+    fn test_migration_version_mismatch() {
+        let svc = make_service();
+        let migration = MigrationPlan {
+            from_version: 1,
+            to_version: 2,
+            steps: vec![],
+        };
+        let plan = svc.create_plan("mismatch", "desc", 2, 3, "hash", Some(migration));
+        assert!(plan.migration_plan.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_validation_with_mismatched_migration_versions() {
+        let svc = make_service();
+        let migration = MigrationPlan {
+            from_version: 1,
+            to_version: 2,
+            steps: vec![],
+        };
+        let plan = svc.create_plan("mismatch", "desc", 2, 3, "hash", Some(migration));
+        let report = svc.validate(&plan.id).await.unwrap();
+        assert!(!report.all_passed);
     }
 }

@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
+import { useAsync } from '@/hooks/useAsync'
 import {
   DEFAULT_SERVICES,
   SAMPLE_INCIDENTS,
@@ -146,35 +147,33 @@ function IncidentCard({ incident }: { incident: Incident }) {
 export function PlatformHealthDashboardPage() {
   const [services, setServices] = useState<ServiceHealth[]>(DEFAULT_SERVICES)
   const [lastRefreshed, setLastRefreshed] = useState(new Date())
-  const [isRefreshing, setIsRefreshing] = useState(false)
 
   const overallStatus = computeOverallStatus(services)
 
   // Group services
   const groups = [...new Set(services.map((s) => s.group))]
 
-  const refresh = async () => {
-    setIsRefreshing(true)
+  const { run: refresh, isLoading: isRefreshing } = useAsync(async () => {
     await new Promise((r) => setTimeout(r, 600)) // simulate network call
-    const refreshed = services.map((s) => ({
-      ...s,
-      lastChecked: Date.now(),
-      responseTimeMs: s.responseTimeMs
-        ? Math.max(1, s.responseTimeMs + Math.round((Math.random() - 0.5) * 20))
-        : undefined,
-    }))
-    setServices(refreshed)
-    recordHealthSnapshot(refreshed)
+    setServices((prev) => {
+      const refreshed = prev.map((s) => ({
+        ...s,
+        lastChecked: Date.now(),
+        responseTimeMs: s.responseTimeMs
+          ? Math.max(1, s.responseTimeMs + Math.round((Math.random() - 0.5) * 20))
+          : undefined,
+      }))
+      recordHealthSnapshot(refreshed)
+      return refreshed
+    })
     setLastRefreshed(new Date())
-    setIsRefreshing(false)
-  }
+  })
 
   // Auto-refresh every 60 seconds
   useEffect(() => {
     const id = setInterval(refresh, 60_000)
     return () => clearInterval(id)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [refresh])
 
   const operationalCount = services.filter((s) => s.status === 'operational').length
   const avgUptime =

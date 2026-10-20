@@ -1,8 +1,5 @@
-import { Card } from '../../ui/Card';
-
-interface ReviewConfirmStepProps {
-  formData: any;
-}
+import { Card } from '../../ui/Card'
+import { ReviewConfirmStepProps } from '../types'
 
 export function ReviewConfirmStep({ formData }: ReviewConfirmStepProps) {
   return (

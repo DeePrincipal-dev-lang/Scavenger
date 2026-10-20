@@ -1,5 +1,7 @@
+//! Core type definitions for the Scavenger contract.
 use soroban_sdk::{contracttype, Address, String, Symbol};
 
+/// Represents an incentive offered by a manufacturer to encourage recycling
 /// Represents a transfer record in the recycling system
 /// This struct is fully compatible with Soroban storage and implements
 /// deterministic serialization for safe storage and retrieval
@@ -64,28 +66,17 @@ impl TransferItemType {
 
     /// Converts a u32 to a TransferItemType
     pub fn from_u32(value: u32) -> Option<Self> {
-        match value {
-            0 => Some(TransferItemType::Material),
-            1 => Some(TransferItemType::Token),
-            2 => Some(TransferItemType::Incentive),
-            3 => Some(TransferItemType::Ownership),
-            _ => None,
-        }
+        crate::type_utils::transfer_item_type_from_u32(value)
     }
 
     /// Converts the TransferItemType to u32
     pub fn to_u32(&self) -> u32 {
-        *self as u32
+        crate::type_utils::transfer_item_type_to_u32(*self)
     }
 
     /// Returns the string representation
     pub fn as_str(&self) -> &'static str {
-        match self {
-            TransferItemType::Material => "MATERIAL",
-            TransferItemType::Token => "TOKEN",
-            TransferItemType::Incentive => "INCENTIVE",
-            TransferItemType::Ownership => "OWNERSHIP",
-        }
+        crate::type_utils::transfer_item_type_as_str(*self)
     }
 }
 
@@ -97,30 +88,17 @@ impl TransferStatus {
 
     /// Converts a u32 to a TransferStatus
     pub fn from_u32(value: u32) -> Option<Self> {
-        match value {
-            0 => Some(TransferStatus::Pending),
-            1 => Some(TransferStatus::InProgress),
-            2 => Some(TransferStatus::Completed),
-            3 => Some(TransferStatus::Failed),
-            4 => Some(TransferStatus::Cancelled),
-            _ => None,
-        }
+        crate::type_utils::transfer_status_from_u32(value)
     }
 
     /// Converts the TransferStatus to u32
     pub fn to_u32(&self) -> u32 {
-        *self as u32
+        crate::type_utils::transfer_status_to_u32(*self)
     }
 
     /// Returns the string representation
     pub fn as_str(&self) -> &'static str {
-        match self {
-            TransferStatus::Pending => "PENDING",
-            TransferStatus::InProgress => "IN_PROGRESS",
-            TransferStatus::Completed => "COMPLETED",
-            TransferStatus::Failed => "FAILED",
-            TransferStatus::Cancelled => "CANCELLED",
-        }
+        crate::type_utils::transfer_status_as_str(*self)
     }
 
     /// Checks if the status is final (cannot be changed)
@@ -306,7 +284,10 @@ impl Incentive {
             return None;
         }
 
-        self.remaining_budget -= reward;
+        self.remaining_budget = self
+            .remaining_budget
+            .checked_sub(reward)
+            .expect("Overflow in remaining budget");
 
         // Auto-deactivate if budget exhausted
         if self.remaining_budget == 0 {
@@ -347,26 +328,17 @@ impl ParticipantRole {
     /// Converts a u32 to a ParticipantRole
     /// Returns None if the value is invalid
     pub fn from_u32(value: u32) -> Option<Self> {
-        match value {
-            0 => Some(ParticipantRole::Recycler),
-            1 => Some(ParticipantRole::Collector),
-            2 => Some(ParticipantRole::Manufacturer),
-            _ => None,
-        }
+        crate::type_utils::participant_role_from_u32(value)
     }
 
     /// Converts the ParticipantRole to u32
     pub fn to_u32(&self) -> u32 {
-        *self as u32
+        crate::type_utils::participant_role_to_u32(*self)
     }
 
     /// Returns the string representation of the role
     pub fn as_str(&self) -> &'static str {
-        match self {
-            ParticipantRole::Recycler => "RECYCLER",
-            ParticipantRole::Collector => "COLLECTOR",
-            ParticipantRole::Manufacturer => "MANUFACTURER",
-        }
+        crate::type_utils::participant_role_as_str(*self)
     }
 
     /// Validates if a participant can perform a specific action based on their role
@@ -407,28 +379,17 @@ impl CertificationLevel {
 
     /// Converts a u32 to a CertificationLevel
     pub fn from_u32(value: u32) -> Option<Self> {
-        match value {
-            0 => Some(CertificationLevel::Beginner),
-            1 => Some(CertificationLevel::Intermediate),
-            2 => Some(CertificationLevel::Advanced),
-            3 => Some(CertificationLevel::Expert),
-            _ => None,
-        }
+        crate::type_utils::certification_level_from_u32(value)
     }
 
     /// Converts the CertificationLevel to u32
     pub fn to_u32(&self) -> u32 {
-        *self as u32
+        crate::type_utils::certification_level_to_u32(*self)
     }
 
     /// Returns the string representation
     pub fn as_str(&self) -> &'static str {
-        match self {
-            CertificationLevel::Beginner => "BEGINNER",
-            CertificationLevel::Intermediate => "INTERMEDIATE",
-            CertificationLevel::Advanced => "ADVANCED",
-            CertificationLevel::Expert => "EXPERT",
-        }
+        crate::type_utils::certification_level_as_str(*self)
     }
 
     /// Determines certification level based on waste count
@@ -491,34 +452,17 @@ impl WasteType {
     /// Converts a u32 to a WasteType
     /// Returns None if the value is invalid
     pub fn from_u32(value: u32) -> Option<Self> {
-        match value {
-            0 => Some(WasteType::Paper),
-            1 => Some(WasteType::PetPlastic),
-            2 => Some(WasteType::Plastic),
-            3 => Some(WasteType::Metal),
-            4 => Some(WasteType::Glass),
-            5 => Some(WasteType::Organic),
-            6 => Some(WasteType::Electronic),
-            _ => None,
-        }
+        crate::type_utils::waste_type_from_u32(value)
     }
 
     /// Converts the WasteType to u32
     pub fn to_u32(&self) -> u32 {
-        *self as u32
+        crate::type_utils::waste_type_to_u32(*self)
     }
 
     /// Returns the string representation of the waste type
     pub fn as_str(&self) -> &'static str {
-        match self {
-            WasteType::Paper => "PAPER",
-            WasteType::PetPlastic => "PETPLASTIC",
-            WasteType::Plastic => "PLASTIC",
-            WasteType::Metal => "METAL",
-            WasteType::Glass => "GLASS",
-            WasteType::Organic => "ORGANIC",
-            WasteType::Electronic => "ELECTRONIC",
-        }
+        crate::type_utils::waste_type_as_str(*self)
     }
 
     /// Returns the carbon credit rate in milligrams of CO2 equivalent per gram of waste.
@@ -658,7 +602,10 @@ impl Material {
         };
 
         // Points = (weight in kg) * multiplier * 10
-        (self.weight / 1000) * multiplier * 10
+        (self.weight / 1000)
+            .checked_mul(multiplier)
+            .and_then(|v| v.checked_mul(10))
+            .expect("Overflow in reward points calculation")
     }
 }
 
@@ -1186,6 +1133,7 @@ impl WasteTransfer {
     }
 }
 
+/// Tracks recycling statistics for a participant
 /// Builder pattern for constructing Waste instances
 /// Provides a fluent API for creating waste with optional fields
 #[allow(dead_code)]
@@ -1401,10 +1349,24 @@ impl RecyclingStats {
 
     /// Records a new material submission
     pub fn record_submission(&mut self, material: &Material) {
-        self.total_submissions += 1;
-        self.total_weight += material.weight;
+        self.total_submissions = self
+            .total_submissions
+            .checked_add(1)
+            .expect("Overflow in total submissions");
+        self.total_weight = self
+            .total_weight
+            .checked_add(material.weight)
+            .expect("Overflow in total weight");
 
         // Update waste type count
+        let count = match material.waste_type {
+            WasteType::Paper => &mut self.paper_count,
+            WasteType::PetPlastic => &mut self.pet_plastic_count,
+            WasteType::Plastic => &mut self.plastic_count,
+            WasteType::Metal => &mut self.metal_count,
+            WasteType::Glass => &mut self.glass_count,
+        };
+        *count = count.checked_add(1).expect("Overflow in waste type count");
         match material.waste_type {
             WasteType::Paper => self.paper_count += 1,
             WasteType::PetPlastic => self.pet_plastic_count += 1,
@@ -1419,6 +1381,14 @@ impl RecyclingStats {
     /// Records a material verification and updates carbon credits
     pub fn record_verification(&mut self, material: &Material) {
         if material.verified {
+            self.verified_submissions = self
+                .verified_submissions
+                .checked_add(1)
+                .expect("Overflow in verified submissions");
+            self.total_points = self
+                .total_points
+                .checked_add(material.calculate_reward_points())
+                .expect("Overflow in total points");
             self.verified_submissions += 1;
             self.total_points += material.calculate_reward_points();
             self.carbon_credits_earned += calculate_carbon_credits(material.waste_type, material.weight as u128);
@@ -1430,7 +1400,10 @@ impl RecyclingStats {
         if self.total_submissions == 0 {
             0
         } else {
-            (self.verified_submissions * 100) / self.total_submissions
+            self.verified_submissions
+                .checked_mul(100)
+                .expect("Overflow in verification rate")
+                / self.total_submissions
         }
     }
 
@@ -1618,6 +1591,62 @@ mod recycling_stats_tests {
         // RecyclingStats can be stored (validated through contract tests)
         assert_eq!(stats.total_submissions, 0);
     }
+
+    #[test]
+    #[should_panic(expected = "Overflow in total submissions")]
+    fn test_record_submission_overflows_at_u64_max_total_submissions() {
+        let env = soroban_sdk::Env::default();
+        let participant = Address::generate(&env);
+        let description = String::from_str(&env, "Test");
+
+        let mut stats = RecyclingStats::new(participant.clone());
+        stats.total_submissions = u64::MAX;
+        let material = Material::new(1, WasteType::Paper, 1, participant, 0, description);
+
+        stats.record_submission(&material);
+    }
+
+    #[test]
+    #[should_panic(expected = "Overflow in total weight")]
+    fn test_record_submission_overflows_at_u64_max_total_weight() {
+        let env = soroban_sdk::Env::default();
+        let participant = Address::generate(&env);
+        let description = String::from_str(&env, "Test");
+
+        let mut stats = RecyclingStats::new(participant.clone());
+        stats.total_weight = u64::MAX;
+        let material = Material::new(1, WasteType::Paper, 1, participant, 0, description);
+
+        stats.record_submission(&material);
+    }
+
+    #[test]
+    #[should_panic(expected = "Overflow in total points")]
+    fn test_record_verification_overflows_at_u64_max_total_points() {
+        let env = soroban_sdk::Env::default();
+        let participant = Address::generate(&env);
+        let description = String::from_str(&env, "Test");
+
+        let mut stats = RecyclingStats::new(participant.clone());
+        stats.total_points = u64::MAX;
+        let mut material = Material::new(1, WasteType::Metal, 1000, participant, 0, description);
+        material.verify();
+
+        stats.record_verification(&material);
+    }
+
+    #[test]
+    #[should_panic(expected = "Overflow in verification rate")]
+    fn test_verification_rate_overflows_at_extreme_verified_submissions() {
+        let env = soroban_sdk::Env::default();
+        let participant = Address::generate(&env);
+
+        let mut stats = RecyclingStats::new(participant);
+        stats.total_submissions = 1;
+        stats.verified_submissions = u64::MAX;
+
+        stats.verification_rate();
+    }
 }
 
 #[cfg(test)]
@@ -1775,6 +1804,266 @@ mod material_tests {
         assert_eq!(material.id, 1);
         assert_eq!(material.waste_type, WasteType::Metal);
         assert_eq!(material.weight, 3000);
+    }
+
+    #[test]
+    fn test_calculate_reward_points_at_u64_max_weight_does_not_overflow() {
+        let env = soroban_sdk::Env::default();
+        let submitter = Address::generate(&env);
+        let description = String::from_str(&env, "Test");
+
+        // weight/1000 shrinks u64::MAX enough that * multiplier(<=5) * 10 cannot overflow u64.
+        let material = Material::new(1, WasteType::Metal, u64::MAX, submitter, 0, description);
+        assert_eq!(material.calculate_reward_points(), (u64::MAX / 1000) * 50);
+    }
+}
+
+#[cfg(test)]
+mod incentive_tests {
+    use super::*;
+    use soroban_sdk::testutils::Address as _;
+
+    #[test]
+    #[should_panic(expected = "Overflow in reward calculation")]
+    fn test_calculate_reward_overflows_at_extreme_reward_points() {
+        let env = soroban_sdk::Env::default();
+        let rewarder = Address::generate(&env);
+
+        let incentive = Incentive::new(1, rewarder, WasteType::Metal, u64::MAX, u64::MAX, 0);
+        // 5000g -> 5kg, 5 * u64::MAX overflows u64
+        incentive.calculate_reward(5000);
+    }
+
+    #[test]
+    fn test_claim_reward_respects_remaining_budget() {
+        let env = soroban_sdk::Env::default();
+        let rewarder = Address::generate(&env);
+
+        let mut incentive = Incentive::new(1, rewarder, WasteType::Metal, 10, 45, 0);
+        // 5kg * 10 = 50 > 45 remaining budget -> rejected
+        assert_eq!(incentive.claim_reward(5000), None);
+        assert_eq!(incentive.remaining_budget, 45);
+
+        // 4kg * 10 = 40 <= 45 remaining budget -> accepted, deactivates only when exhausted
+        assert_eq!(incentive.claim_reward(4000), Some(40));
+        assert_eq!(incentive.remaining_budget, 5);
+        assert!(incentive.active);
+    }
+
+    #[test]
+    fn test_claim_reward_deactivates_on_exact_budget_exhaustion() {
+        let env = soroban_sdk::Env::default();
+        let rewarder = Address::generate(&env);
+
+        let mut incentive = Incentive::new(1, rewarder, WasteType::Metal, 10, 50, 0);
+        assert_eq!(incentive.claim_reward(5000), Some(50));
+        assert_eq!(incentive.remaining_budget, 0);
+        assert!(!incentive.active);
+    }
+}
+
+#[cfg(test)]
+mod waste_tests {
+    use super::*;
+    use soroban_sdk::testutils::Address as _;
+    use soroban_sdk::Env;
+
+    fn make_waste(env: &Env, owner: Address, latitude: i128, longitude: i128) -> Waste {
+        Waste::new(1, WasteType::Metal, 5000, owner.clone(), latitude, longitude, 0, true, false, owner)
+    }
+
+    #[test]
+    fn test_new_sets_all_fields() {
+        let env = Env::default();
+        let owner = Address::generate(&env);
+        let confirmer = Address::generate(&env);
+        let waste = Waste::new(7, WasteType::Glass, 250, owner.clone(), 1, 2, 99, false, true, confirmer.clone());
+
+        assert_eq!(waste.waste_id, 7);
+        assert_eq!(waste.waste_type, WasteType::Glass);
+        assert_eq!(waste.weight, 250);
+        assert_eq!(waste.current_owner, owner);
+        assert_eq!(waste.latitude, 1);
+        assert_eq!(waste.longitude, 2);
+        assert_eq!(waste.recycled_timestamp, 99);
+        assert!(!waste.is_active);
+        assert!(waste.is_confirmed);
+        assert_eq!(waste.confirmer, confirmer);
+    }
+
+    #[test]
+    fn test_has_valid_coordinates() {
+        let env = Env::default();
+        let owner = Address::generate(&env);
+
+        assert!(make_waste(&env, owner.clone(), 0, 0).has_valid_coordinates());
+        assert!(make_waste(&env, owner.clone(), 90_000_000, 180_000_000).has_valid_coordinates());
+        assert!(make_waste(&env, owner.clone(), -90_000_000, -180_000_000).has_valid_coordinates());
+        assert!(!make_waste(&env, owner.clone(), 90_000_001, 0).has_valid_coordinates());
+        assert!(!make_waste(&env, owner, 0, 180_000_001).has_valid_coordinates());
+    }
+
+    #[test]
+    fn test_is_recycled() {
+        let env = Env::default();
+        let owner = Address::generate(&env);
+        let mut waste = make_waste(&env, owner, 0, 0);
+
+        assert!(!waste.is_recycled());
+        waste.mark_recycled(12345);
+        assert!(waste.is_recycled());
+        assert_eq!(waste.recycled_timestamp, 12345);
+    }
+
+    #[test]
+    fn test_waste_meets_minimum_weight() {
+        let env = Env::default();
+        let owner = Address::generate(&env);
+
+        let mut light = make_waste(&env, owner.clone(), 0, 0);
+        light.weight = 99;
+        assert!(!light.meets_minimum_weight());
+
+        let mut exact = make_waste(&env, owner, 0, 0);
+        exact.weight = 100;
+        assert!(exact.meets_minimum_weight());
+    }
+
+    #[test]
+    fn test_update_location() {
+        let env = Env::default();
+        let owner = Address::generate(&env);
+        let mut waste = make_waste(&env, owner, 0, 0);
+
+        waste.update_location(45_000_000, -93_000_000);
+        assert_eq!(waste.latitude, 45_000_000);
+        assert_eq!(waste.longitude, -93_000_000);
+    }
+}
+
+#[cfg(test)]
+mod transfer_record_tests {
+    use super::*;
+    use soroban_sdk::testutils::Address as _;
+    use soroban_sdk::Env;
+
+    #[test]
+    fn test_transfer_item_type_round_trip() {
+        for (variant, value) in [
+            (TransferItemType::Material, 0u32),
+            (TransferItemType::Token, 1),
+            (TransferItemType::Incentive, 2),
+            (TransferItemType::Ownership, 3),
+        ] {
+            assert!(TransferItemType::is_valid(value));
+            assert_eq!(TransferItemType::from_u32(value), Some(variant));
+            assert_eq!(variant.to_u32(), value);
+        }
+        assert!(!TransferItemType::is_valid(4));
+        assert_eq!(TransferItemType::from_u32(4), None);
+    }
+
+    #[test]
+    fn test_transfer_status_round_trip_and_state() {
+        for (variant, value, is_final, is_active) in [
+            (TransferStatus::Pending, 0u32, false, true),
+            (TransferStatus::InProgress, 1, false, true),
+            (TransferStatus::Completed, 2, true, false),
+            (TransferStatus::Failed, 3, true, false),
+            (TransferStatus::Cancelled, 4, true, false),
+        ] {
+            assert!(TransferStatus::is_valid(value));
+            assert_eq!(TransferStatus::from_u32(value), Some(variant));
+            assert_eq!(variant.to_u32(), value);
+            assert_eq!(variant.is_final(), is_final);
+            assert_eq!(variant.is_active(), is_active);
+        }
+        assert!(!TransferStatus::is_valid(5));
+        assert_eq!(TransferStatus::from_u32(5), None);
+    }
+
+    fn make_record(env: &Env, from: Address, to: Address) -> TransferRecord {
+        TransferRecord::new(
+            1,
+            from,
+            to,
+            TransferItemType::Material,
+            42,
+            5000,
+            0,
+            String::from_str(env, "note"),
+        )
+    }
+
+    #[test]
+    fn test_new_starts_pending() {
+        let env = Env::default();
+        let from = Address::generate(&env);
+        let to = Address::generate(&env);
+        let record = make_record(&env, from, to);
+
+        assert_eq!(record.status, TransferStatus::Pending);
+        assert!(!record.is_complete());
+        assert!(record.is_modifiable());
+    }
+
+    #[test]
+    fn test_update_status_succeeds_while_not_final() {
+        let env = Env::default();
+        let from = Address::generate(&env);
+        let to = Address::generate(&env);
+        let mut record = make_record(&env, from, to);
+
+        assert!(record.update_status(TransferStatus::InProgress));
+        assert_eq!(record.status, TransferStatus::InProgress);
+
+        assert!(record.update_status(TransferStatus::Completed));
+        assert_eq!(record.status, TransferStatus::Completed);
+        assert!(record.is_complete());
+        assert!(!record.is_modifiable());
+    }
+
+    #[test]
+    fn test_update_status_rejected_once_final() {
+        let env = Env::default();
+        let from = Address::generate(&env);
+        let to = Address::generate(&env);
+        let mut record = make_record(&env, from, to);
+
+        assert!(record.update_status(TransferStatus::Cancelled));
+        // Status is final; further updates must be rejected and leave state unchanged.
+        assert!(!record.update_status(TransferStatus::Pending));
+        assert_eq!(record.status, TransferStatus::Cancelled);
+    }
+
+    #[test]
+    fn test_validate_rejects_zero_amount() {
+        let env = Env::default();
+        let from = Address::generate(&env);
+        let to = Address::generate(&env);
+        let mut record = make_record(&env, from, to);
+        record.amount = 0;
+
+        assert_eq!(record.validate(), Err("Amount must be greater than zero"));
+    }
+
+    #[test]
+    fn test_validate_rejects_same_sender_and_recipient() {
+        let env = Env::default();
+        let addr = Address::generate(&env);
+        let record = make_record(&env, addr.clone(), addr);
+
+        assert_eq!(record.validate(), Err("Sender and recipient cannot be the same"));
+    }
+
+    #[test]
+    fn test_validate_accepts_well_formed_record() {
+        let env = Env::default();
+        let from = Address::generate(&env);
+        let to = Address::generate(&env);
+        let record = make_record(&env, from, to);
+
+        assert_eq!(record.validate(), Ok(()));
     }
 }
 

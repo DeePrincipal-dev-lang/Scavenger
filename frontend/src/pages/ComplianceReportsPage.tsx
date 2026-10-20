@@ -2,8 +2,6 @@ import { useState, useMemo, useCallback } from 'react'
 import {
   FileText,
   FileBarChart,
-  Calendar,
-  Users,
   Eye,
   Download,
   Clock,
@@ -14,10 +12,8 @@ import {
   History,
   ClipboardList,
   Printer,
-  Send,
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
-import { StatCard } from '@/components/ui/StatCard'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -31,6 +27,7 @@ import {
 } from '@/components/ui/Select'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useAppTitle } from '@/hooks/useAppTitle'
+import { cacheKeys } from '@/lib/cacheKeys'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -146,7 +143,7 @@ const REPORT_HISTORY: ReportHistory[] = [
 
 function useReportTemplates() {
   return useQuery<ReportTemplate[]>({
-    queryKey: ['report-templates'],
+    queryKey: cacheKeys.reportTemplates(),
     queryFn: async () => REPORT_TEMPLATES,
     staleTime: 300_000,
   })
@@ -154,7 +151,7 @@ function useReportTemplates() {
 
 function useReportHistory() {
   return useQuery<ReportHistory[]>({
-    queryKey: ['report-history'],
+    queryKey: cacheKeys.reportHistory(),
     queryFn: async () => REPORT_HISTORY,
     staleTime: 60_000,
   })
@@ -162,7 +159,7 @@ function useReportHistory() {
 
 function useScheduledReports() {
   return useQuery<ScheduledReport[]>({
-    queryKey: ['scheduled-reports'],
+    queryKey: cacheKeys.scheduledReports(),
     queryFn: async () => SCHEDULED_REPORTS,
     staleTime: 60_000,
   })

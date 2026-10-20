@@ -512,7 +512,7 @@ PR
 | [`docs/SYSTEM_DESIGN.md`](./SYSTEM_DESIGN.md) | Contract state & algorithms |
 | [`docs/TESTING_AND_QA.md`](./TESTING_AND_QA.md) | Testing strategy |
 | [`docs/DEV_ENVIRONMENT.md`](./DEV_ENVIRONMENT.md) | Detailed environment setup |
-| [`docs/API_DOCUMENTATION.md`](./API_DOCUMENTATION.md) | REST API reference |
+| [`docs/API_REFERENCE.md`](./API_REFERENCE.md) | REST API reference |
 | [`QUICKSTART.txt`](../QUICKSTART.txt) | Fast-path setup |
 
 ---

@@ -52,22 +52,19 @@ This test suite includes 15+ integration tests covering:
 
 ## Setup
 
-### Prerequisites
+These tests run against a live environment. Set one up using the canonical guide
+first — Node.js, Docker, the Stellar network, Postgres, and the deployed contract are
+all covered there:
 
-- Node.js 18+
-- Running Scavenger API
-- Running Stellar testnet or standalone network
-- PostgreSQL database (for backend)
+➡️ **[Developer Onboarding Guide](../docs/DEVELOPER_ONBOARDING.md#development-environment-setup)**
 
-### Installation
+Then install and configure this suite:
 
 ```bash
 npm install
 ```
 
-### Configuration
-
-Create `.env` file:
+Create a `.env` in this directory pointing at your running environment:
 
 ```env
 API_URL=http://localhost:3000/api
@@ -75,6 +72,10 @@ CONTRACT_ID=your-contract-id
 DATABASE_URL=postgresql://user:password@localhost:5432/scavenger
 STELLAR_NETWORK=testnet
 ```
+
+Set `CONTRACT_ID` to the contract you deployed during setup. If you brought the stack
+up with `docker compose`, `DATABASE_URL` is
+`postgresql://scavngr:scavngr_dev@localhost:5432/scavngr`.
 
 ## Running Tests
 

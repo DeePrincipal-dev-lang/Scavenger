@@ -564,58 +564,38 @@ Primary Failure
 
 ## Architecture Decision Records (ADRs)
 
-### ADR-001: Use Soroban for Smart Contracts
+This document describes **how** the system is built. The decision log records **why**,
+including the alternatives that were rejected and the costs each choice carries.
 
-**Decision**: Use Soroban (Rust) instead of JavaScript/TypeScript
+➡️ **[Architecture Decision Records](./adr/README.md)**
 
-**Rationale**:
-- Type safety
-- Performance
-- Stellar native
-- Mature ecosystem
+| # | Decision | Area |
+|---|----------|------|
+| [0001](./adr/0001-use-soroban-for-smart-contracts.md) | Use Soroban and Rust for the on-chain contract | Contract |
+| [0002](./adr/0002-off-chain-event-driven-indexing.md) | Serve queries from an off-chain event-driven indexer | Indexer |
+| [0003](./adr/0003-percentage-based-reward-distribution.md) | Distribute rewards by configurable percentage | Contract |
+| [0004](./adr/0004-contract-storage-key-layout.md) | Tier contract storage by access pattern, with typed tuple keys | Contract |
+| [0005](./adr/0005-indexer-relational-schema.md) | Project events into a normalised Postgres schema, keeping raw events | Indexer |
+| [0006](./adr/0006-wallet-based-authentication-flow.md) | Authenticate with wallet signatures; treat frontend session state as UI only | Frontend / Auth |
 
-**Consequences**:
-- Steeper learning curve
-- Better security
-- Faster execution
+ADRs 0001–0003 were previously recorded inline in this document and now live in the
+log, keeping their original numbering. Changes that contradict an Accepted ADR should
+be raised in review; changes that supersede one should ship with a new ADR.
 
-### ADR-002: Event-Driven Indexing
-
-**Decision**: Use off-chain indexer for queries
-
-**Rationale**:
-- Reduce contract complexity
-- Faster queries
-- Better analytics
-
-**Consequences**:
-- Additional infrastructure
-- Eventual consistency
-- More operational overhead
-
-### ADR-003: Percentage-Based Rewards
-
-**Decision**: Use configurable percentages for reward distribution
-
-**Rationale**:
-- Flexible incentive structure
-- Admin control
-- Fair distribution
-
-**Consequences**:
-- Requires admin management
-- Potential for disputes
-- Audit trail needed
+New decisions start from [`docs/adr/template.md`](./adr/template.md).
 
 ---
 
 ## Related Documentation
 
-- [API Documentation](./API_DOCUMENTATION.md)
+- [Architecture Decision Records](./adr/README.md)
+- [API Reference](./API_REFERENCE.md)
+- [API Documentation](./API_REFERENCE.md)
+- [Database Schema](./DATABASE_SCHEMA.md)
 - [User Guide](./USER_GUIDE.md)
 - [Security Audit Report](./SECURITY_AUDIT.md)
 - [Deployment Guide](./KUBERNETES_DEPLOYMENT.md)
 
 ---
 
-Last updated: April 27, 2026
+Last updated: July 24, 2026

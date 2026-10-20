@@ -10,6 +10,7 @@
 
 import { getPool } from '../db/client';
 import { recordQueryMetric } from '../db/queryOptimizer';
+import { CACHE, EVENT_PAGINATION } from '../constants';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -73,7 +74,7 @@ export async function getWastesWithTransfers(
     [recyclerAddress],
   );
 
-  if (wastes.length === 0) return [];
+  if (wastes.length === 0) {return [];}
 
   const wasteIds = wastes.map(w => w.id);
   const transfers = await timedQuery<TransferRow>(
@@ -104,7 +105,7 @@ export async function getWastesWithTransfers(
 export async function getParticipantsBatch(
   addresses: string[],
 ): Promise<Map<string, ParticipantRow>> {
-  if (addresses.length === 0) return new Map();
+  if (addresses.length === 0) {return new Map();}
 
   const rows = await timedQuery<ParticipantRow>(
     `SELECT address, role, name, latitude, longitude, registered_at, is_active
@@ -114,7 +115,7 @@ export async function getParticipantsBatch(
   );
 
   const map = new Map<string, ParticipantRow>();
-  for (const row of rows) map.set(row.address, row);
+  for (const row of rows) {map.set(row.address, row);}
   return map;
 }
 
@@ -157,13 +158,13 @@ export interface EventSummary {
  * index (created in migration 003) to avoid seq-scans on large tables.
  */
 export async function getRecentEvents(
-  limit = 50,
+  limit = EVENT_PAGINATION.DEFAULT_RECENT_EVENTS_LIMIT,
   offset = 0,
   eventType?: string,
 ): Promise<EventSummary[]> {
-  const params: unknown[] = [Math.min(limit, 500), offset];
+  const params: unknown[] = [Math.min(limit, EVENT_PAGINATION.MAX_RECENT_EVENTS_LIMIT), offset];
   const typeClause = eventType ? ` AND event_type = $3` : '';
-  if (eventType) params.push(eventType);
+  if (eventType) {params.push(eventType);}
 
   return timedQuery<EventSummary>(
     `SELECT id, ledger_sequence, event_type, contract_id, created_at
@@ -182,15 +183,13 @@ const metricsCache: { value: SupplyChainStats | null; expiresAt: number } = {
   value: null,
   expiresAt: 0,
 };
-const METRICS_TTL_MS = 30_000; // 30 seconds
-
 export async function getCachedSupplyChainStats(): Promise<SupplyChainStats> {
   if (metricsCache.value && Date.now() < metricsCache.expiresAt) {
     return metricsCache.value;
   }
   const fresh = await getSupplyChainStats();
   metricsCache.value = fresh;
-  metricsCache.expiresAt = Date.now() + METRICS_TTL_MS;
+  metricsCache.expiresAt = Date.now() + CACHE.METRICS_TTL_MS;
   return fresh;
 }
 

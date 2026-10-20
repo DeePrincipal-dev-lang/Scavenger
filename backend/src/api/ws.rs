@@ -1,3 +1,11 @@
+//! WebSocket handler — structured error codes (#1092).
+//!
+//! All error frames emitted over the WebSocket connection use `WsErrorFrame`
+//! with a `WsErrorCode` variant so that clients can match on a stable,
+//! machine-readable code instead of parsing free-text messages.
+//!
+//! See `crate::errors::ws_errors` for the full code table and wire format.
+
 use actix_web::{web, HttpRequest, HttpResponse};
 use futures::StreamExt;
 use serde::{Deserialize, Serialize};
@@ -5,7 +13,10 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tracing::{error, info, warn};
 
+use crate::errors::ws_errors::{WsErrorCode, WsErrorFrame};
 use crate::services::api::ApiBuilder;
+
+// ── Message types ─────────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", content = "payload")]
@@ -15,10 +26,12 @@ pub enum WsMessage {
     Event { channel: String, data: serde_json::Value },
     Authenticate { token: String },
     AuthSuccess,
-    AuthError { message: String },
+    /// Structured auth error — use `WsErrorFrame` for wire format.
+    AuthError { code: WsErrorCode, message: String },
     Pong,
     Ping,
-    Error { message: String },
+    /// Structured error — use `WsErrorFrame` for wire format.
+    Error { code: WsErrorCode, message: String },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -45,6 +58,8 @@ pub struct ConnectionInfo {
     pub last_heartbeat: String,
 }
 
+// ── Connection manager ────────────────────────────────────────────────────────
+
 #[derive(Clone)]
 pub struct WsConnectionManager {
     pub shutdown_flag: Arc<AtomicBool>,
@@ -67,14 +82,39 @@ impl WsConnectionManager {
     }
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+/// Serialise a `WsErrorFrame` to a JSON string for sending over the socket.
+fn error_frame(code: WsErrorCode) -> String {
+    WsErrorFrame::new(code).to_json()
+}
+
+/// Serialise a `WsErrorFrame` with a custom message.
+fn error_frame_msg(code: WsErrorCode, message: &str) -> String {
+    WsErrorFrame::with_message(code, message).to_json()
+}
+
+/// Serialise an outgoing frame. The types here always serialise, so the
+/// fallback is a safety net: it logs and sends a generic error frame rather
+/// than panicking the connection task.
+fn to_frame<T: Serialize>(value: &T) -> String {
+    serde_json::to_string(value).unwrap_or_else(|e| {
+        error!(error = %e, "failed to serialise WebSocket frame");
+        r#"{"type":"error","payload":{"code":"internal","message":"serialisation failure"}}"#.to_string()
+    })
+}
+
+// ── Handler ───────────────────────────────────────────────────────────────────
+
 pub async fn ws_handler(
     req: HttpRequest,
     stream: web::Payload,
     manager: web::Data<WsConnectionManager>,
 ) -> Result<HttpResponse, actix_web::Error> {
     if manager.is_shutting_down() {
-        return Ok(HttpResponse::ServiceUnavailable()
-            .json(ApiBuilder::error_response::<String>("server shutting down")));
+        return Ok(
+            HttpResponse::ServiceUnavailable().json(ApiBuilder::error_response::<String>("server shutting down"))
+        );
     }
 
     let (response, mut session, mut msg_stream) = actix_ws::handle(&req, stream)?;
@@ -100,34 +140,24 @@ pub async fn ws_handler(
                         Ok(actix_ws::Message::Text(text)) => {
                             match serde_json::from_str::<WsMessage>(&text) {
                                 Ok(WsMessage::Authenticate { token }) => {
+                                    // Minimal length check — replace with real JWT validation.
                                     if token.len() >= 8 {
                                         authenticated = true;
-                                        user_id = Some(format!("user_{}", &token[..8]));
-                                        info!(user_id = %user_id.as_ref().unwrap(), "WebSocket client authenticated");
-                                        let _ = session
-                                            .text(serde_json::to_string(&WsMessage::AuthSuccess).unwrap())
-                                            .await;
+                                        let uid = format!("user_{}", &token[..8]);
+                                        info!(user_id = %uid, "WebSocket client authenticated");
+                                        user_id = Some(uid);
+                                        let _ = session.text(to_frame(&WsMessage::AuthSuccess)).await;
                                     } else {
                                         warn!("WebSocket authentication failed: invalid token");
                                         let _ = session
-                                            .text(
-                                                serde_json::to_string(&WsMessage::AuthError {
-                                                    message: "invalid token".to_string(),
-                                                })
-                                                .unwrap(),
-                                            )
+                                            .text(error_frame(WsErrorCode::AuthInvalidToken))
                                             .await;
                                     }
                                 }
                                 Ok(WsMessage::Subscribe { channel }) => {
                                     if !authenticated {
                                         let _ = session
-                                            .text(
-                                                serde_json::to_string(&WsMessage::Error {
-                                                    message: "authentication required".to_string(),
-                                                })
-                                                .unwrap(),
-                                            )
+                                            .text(error_frame(WsErrorCode::AuthTokenRequired))
                                             .await;
                                         continue;
                                     }
@@ -137,11 +167,10 @@ pub async fn ws_handler(
                                     }
                                     let _ = session
                                         .text(
-                                            serde_json::to_string(&serde_json::json!({
+                                            to_frame(&serde_json::json!({
                                                 "type": "subscribed",
                                                 "channel": channel
-                                            }))
-                                            .unwrap(),
+                                            })),
                                         )
                                         .await;
                                 }
@@ -149,28 +178,29 @@ pub async fn ws_handler(
                                     subscribed_channels.retain(|c| c != &channel);
                                     let _ = session
                                         .text(
-                                            serde_json::to_string(&serde_json::json!({
+                                            to_frame(&serde_json::json!({
                                                 "type": "unsubscribed",
                                                 "channel": channel
-                                            }))
-                                            .unwrap(),
+                                            })),
                                         )
                                         .await;
                                 }
                                 Ok(WsMessage::Ping) | Ok(WsMessage::Pong) => {
                                     last_heartbeat = std::time::Instant::now();
                                     let _ = session
-                                        .text(serde_json::to_string(&WsMessage::Pong).unwrap())
+                                        .text(to_frame(&WsMessage::Pong))
                                         .await;
                                 }
-                                _ => {
+                                // Unrecognised message type — structured error.
+                                Ok(_) => {
                                     let _ = session
-                                        .text(
-                                            serde_json::to_string(&WsMessage::Error {
-                                                message: "unknown message type".to_string(),
-                                            })
-                                            .unwrap(),
-                                        )
+                                        .text(error_frame(WsErrorCode::MessageUnknownType))
+                                        .await;
+                                }
+                                // Parse failure — structured error.
+                                Err(_) => {
+                                    let _ = session
+                                        .text(error_frame(WsErrorCode::MessageParseError))
                                         .await;
                                 }
                             }
@@ -198,19 +228,16 @@ pub async fn ws_handler(
 
                     if last_heartbeat.elapsed() > std::time::Duration::from_secs(30) {
                         warn!(connection_id = %connection_id, "Client heartbeat timeout, closing connection");
+                        let _ = session
+                            .text(error_frame(WsErrorCode::ServerHeartbeatTimeout))
+                            .await;
                         break;
                     }
 
                     if shutdown_flag.load(Ordering::Relaxed) {
                         info!(connection_id = %connection_id, "Server shutting down, closing WebSocket");
                         let _ = session
-                            .text(
-                                serde_json::to_string(&serde_json::json!({
-                                    "type": "shutdown",
-                                    "message": "server shutting down"
-                                }))
-                                .unwrap(),
-                            )
+                            .text(error_frame(WsErrorCode::ServerShuttingDown))
                             .await;
                         break;
                     }
@@ -232,13 +259,16 @@ pub async fn ws_health() -> HttpResponse {
     })))
 }
 
+// ── Tests ─────────────────────────────────────────────────────────────────────
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use actix_web::test;
+
+    // ── WsMessage serialisation ───────────────────────────────────────────────
 
     #[actix_web::test]
-    async fn test_ws_message_serialization() {
+    async fn subscribe_message_serialises_correctly() {
         let msg = WsMessage::Subscribe {
             channel: "waste:updates".to_string(),
         };
@@ -253,7 +283,7 @@ mod tests {
     }
 
     #[test]
-    fn test_auth_message() {
+    fn auth_message_roundtrips() {
         let msg = WsMessage::Authenticate {
             token: "test_token_123".to_string(),
         };
@@ -266,7 +296,7 @@ mod tests {
     }
 
     #[test]
-    fn test_event_message() {
+    fn event_message_roundtrips() {
         let msg = WsMessage::Event {
             channel: "test".to_string(),
             data: serde_json::json!({"key": "value"}),
@@ -283,7 +313,7 @@ mod tests {
     }
 
     #[test]
-    fn test_connection_info() {
+    fn connection_info_roundtrips() {
         let info = ConnectionInfo {
             connection_id: "conn-1".to_string(),
             user_id: Some("user-1".to_string()),
@@ -295,5 +325,69 @@ mod tests {
         let deserialized: ConnectionInfo = serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized.connection_id, "conn-1");
         assert_eq!(deserialized.user_id, Some("user-1".to_string()));
+    }
+
+    // ── Structured error frame helpers ────────────────────────────────────────
+
+    #[test]
+    fn to_frame_encodes_pong_and_json_values() {
+        let pong: serde_json::Value = serde_json::from_str(&to_frame(&WsMessage::Pong)).unwrap();
+        assert_eq!(pong["type"], "pong");
+
+        let channel = to_frame(&serde_json::json!({"type": "subscribed", "channel": "waste"}));
+        let parsed: serde_json::Value = serde_json::from_str(&channel).unwrap();
+        assert_eq!(parsed["channel"], "waste");
+    }
+
+    #[test]
+    fn error_frame_helper_produces_valid_json_with_code() {
+        let json = error_frame(WsErrorCode::AuthTokenRequired);
+        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed["type"], "error");
+        assert_eq!(parsed["payload"]["code"], "auth.token_required");
+        assert!(parsed["payload"]["message"].is_string());
+    }
+
+    #[test]
+    fn error_frame_msg_helper_overrides_message() {
+        let json = error_frame_msg(WsErrorCode::ChannelNotFound, "channel 'events' not found");
+        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed["payload"]["code"], "channel.not_found");
+        assert_eq!(parsed["payload"]["message"], "channel 'events' not found");
+    }
+
+    #[test]
+    fn auth_invalid_token_error_frame_has_correct_code() {
+        let json = error_frame(WsErrorCode::AuthInvalidToken);
+        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed["payload"]["code"], "auth.invalid_token");
+    }
+
+    #[test]
+    fn server_shutting_down_error_frame_has_correct_code() {
+        let json = error_frame(WsErrorCode::ServerShuttingDown);
+        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed["payload"]["code"], "server.shutting_down");
+    }
+
+    #[test]
+    fn heartbeat_timeout_error_frame_has_correct_code() {
+        let json = error_frame(WsErrorCode::ServerHeartbeatTimeout);
+        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed["payload"]["code"], "server.heartbeat_timeout");
+    }
+
+    #[test]
+    fn parse_error_frame_has_correct_code() {
+        let json = error_frame(WsErrorCode::MessageParseError);
+        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed["payload"]["code"], "message.parse_error");
+    }
+
+    #[test]
+    fn unknown_type_error_frame_has_correct_code() {
+        let json = error_frame(WsErrorCode::MessageUnknownType);
+        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed["payload"]["code"], "message.unknown_type");
     }
 }

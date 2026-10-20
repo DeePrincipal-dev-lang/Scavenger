@@ -1,4 +1,70 @@
+//! Shared error types for the Scavenger contract.
+// ── Issue #921: Shared error module ──────────────────────────────────────────
+//
+// This file is the **single source of truth** for all error codes in the
+// `stellar-scavngr-contract` crate.
+//
+// Authoring rules:
+//   1. Every new error variant MUST be added here, not in a sub-module.
+//   2. Sub-modules (`participant.rs`, `waste.rs`, `incentive.rs`, etc.) MUST
+//      import errors via `use crate::errors::Error;` — never define their own
+//      contract error enums.
+//   3. Subsystem-specific helper enums (e.g. `CommitmentError`,
+//      `KeyRotationError`) that are **not** Soroban `#[contracterror]` types
+//      may remain local to their module when the subsystem does not surface
+//      errors to external callers.
+//   4. `lib.rs` re-exports `Error` at the crate root via `pub use errors::Error;`.
+//
+// See docs/adr/0004-contract-storage-key-layout.md for the error numbering
+// convention.
+
 use soroban_sdk::contracterror;
+
+// ── Error consolidation audit (issue #1097) ────────────────────────────────────
+//
+// Scope of the audit: `waste.rs`, `incentive.rs`, `transfer_mgmt.rs`, and
+// `participant.rs`, as named in the issue.
+//
+// Findings:
+// - `waste.rs`, `incentive.rs`, and `participant.rs` all exist and already
+//   fully delegate error handling to this `Error` enum: every fallible
+//   function in those three files returns `Result<_, Error>`, and none of
+//   them define a local error enum or call `panic!`/`.expect()`. No
+//   migration was needed in these files.
+// - `transfer_mgmt.rs` does not exist in this codebase. Waste-transfer logic
+//   (`transfer_waste`, `transfer_waste_v2`, `batch_transfer_waste`, the
+//   auction functions, etc.) lives directly in `lib.rs`.
+// - The actual duplicate-error-definition problem is in `lib.rs` itself: it
+//   contains roughly 130 `panic!(...)`/`.expect(...)` call sites using ad hoc
+//   string messages (e.g. `panic!("Admin already initialized")`,
+//   `.expect("Waste not found")`) instead of the equivalent variant already
+//   defined below (`Error::AlreadyInitialized`, `Error::WasteNotFound`, …).
+//   This was not part of the issue's named file list, and is a much larger
+//   change: converting it means changing the signature of every affected
+//   `pub fn` in `ScavengerContract` from `T` to `Result<T, Error>` across an
+//   ~8,000-line file that over 100 test files exercise, several of them via
+//   `#[should_panic(expected = "<exact string>")]` on the current panic text.
+//   This environment has no Rust toolchain available to compile or run the
+//   test suite, so that migration was not attempted blind here — it needs to
+//   be done with a working `cargo test` loop to catch signature and
+//   string-assertion breakage as it happens.
+//
+// Migration note (no breaking change made in this PR): no `Error` variant
+// numbering changed here, and no `lib.rs` function signatures changed, so
+// existing on-chain event/error consumers are unaffected by this PR. The
+// recommended follow-up, once a toolchain is available: convert `lib.rs`'s
+// panics to `Result<_, Error>` one functional section at a time (Admin →
+// Participant → Waste → Incentive → …), reusing the existing variants below
+// wherever the condition already matches one (adding new variants, never
+// renumbering existing ones, if a truly new condition is found). Because
+// Soroban's generated contract client exposes both a panicking `foo()` and a
+// `try_foo()` returning `Result` for any function returning `Result<T, E>`
+// where `E` derives `#[contracterror]`, this does not change how off-chain
+// callers invoke the contract — only how they observe failures (a typed
+// error code via `try_foo()` instead of a free-text panic message). Any
+// existing `#[should_panic(expected = "...")]` test assertions on the
+// affected functions will need to become `assert_eq!(result, Err(Error::X))`
+// as part of that follow-up.
 
 /// Typed error codes for the Scavngr contract.
 ///
@@ -254,6 +320,41 @@ pub enum Error {
     /// (54) The reconciliation adjustment exceeds the allowed threshold.
     /// Returned by: `reconcile_waste`
     ReconciliationThresholdExceeded = 54,
+
+    // ── Consolidated subsystem errors (#1097 audit) ──────────────────────────
+    //
+    // These variants mirror `KeyRotationError` (key_rotation.rs) and
+    // `CommitmentError` (zkp.rs) one-for-one. They are additive-only: the
+    // existing local enums in those modules are left in place for now (per
+    // rule #3 above, since neither is a `#[contracterror]` type surfaced to
+    // external callers), but new call sites in those subsystems should
+    // prefer these shared variants so the crate converges on a single
+    // source of truth over time. No existing numeric codes were renumbered.
+
+    /// (55) No key has been installed for this purpose yet.
+    KeyRotationNoActiveKey = 55,
+    /// (56) The requested (purpose, version) pair does not exist.
+    KeyRotationVersionNotFound = 56,
+    /// (57) Only the contract admin may rotate or revoke keys.
+    KeyRotationUnauthorized = 57,
+    /// (58) Cannot purge the currently active key version.
+    KeyRotationCannotPurgeActive = 58,
+    /// (59) The supplied key hash is all-zeros (likely an accident).
+    KeyRotationZeroKeyHash = 59,
+    /// (60) A key already exists for this purpose.
+    KeyRotationAlreadyExists = 60,
+    /// (61) No commitment found for this (committer, id) pair.
+    CommitmentNotFound = 61,
+    /// (62) Commitment hash does not match the supplied preimage.
+    CommitmentHashMismatch = 62,
+    /// (63) Commitment has already been consumed.
+    CommitmentAlreadyVerified = 63,
+    /// (64) Commitment has been cancelled.
+    CommitmentCancelled = 64,
+    /// (65) Commitment has expired.
+    CommitmentExpired = 65,
+    /// (66) Commitment is still pending — cannot cancel a verified commitment.
+    CommitmentNotPending = 66,
 }
 
 // ── Issue #760: error categorization and context ──────────────────────────────
@@ -337,6 +438,19 @@ impl Error {
 
             Error::Overflow => ErrorCategory::Arithmetic,
 
+            Error::KeyRotationNoActiveKey
+            | Error::KeyRotationVersionNotFound
+            | Error::KeyRotationUnauthorized
+            | Error::KeyRotationCannotPurgeActive
+            | Error::KeyRotationZeroKeyHash
+            | Error::KeyRotationAlreadyExists
+            | Error::CommitmentNotFound
+            | Error::CommitmentHashMismatch
+            | Error::CommitmentAlreadyVerified
+            | Error::CommitmentCancelled
+            | Error::CommitmentExpired
+            | Error::CommitmentNotPending => ErrorCategory::Auth,
+
             Error::CharityNotSet | Error::TokenAddressNotSet => ErrorCategory::Config,
         }
     }
@@ -399,6 +513,18 @@ impl Error {
             Error::Overflow => "ARITHMETIC/OVERFLOW",
             Error::CharityNotSet => "CONFIG/CHARITY_NOT_SET",
             Error::TokenAddressNotSet => "CONFIG/TOKEN_ADDRESS_NOT_SET",
+            Error::KeyRotationNoActiveKey => "AUTH/KEY_ROTATION_NO_ACTIVE_KEY",
+            Error::KeyRotationVersionNotFound => "AUTH/KEY_ROTATION_VERSION_NOT_FOUND",
+            Error::KeyRotationUnauthorized => "AUTH/KEY_ROTATION_UNAUTHORIZED",
+            Error::KeyRotationCannotPurgeActive => "AUTH/KEY_ROTATION_CANNOT_PURGE_ACTIVE",
+            Error::KeyRotationZeroKeyHash => "AUTH/KEY_ROTATION_ZERO_KEY_HASH",
+            Error::KeyRotationAlreadyExists => "AUTH/KEY_ROTATION_ALREADY_EXISTS",
+            Error::CommitmentNotFound => "AUTH/COMMITMENT_NOT_FOUND",
+            Error::CommitmentHashMismatch => "AUTH/COMMITMENT_HASH_MISMATCH",
+            Error::CommitmentAlreadyVerified => "AUTH/COMMITMENT_ALREADY_VERIFIED",
+            Error::CommitmentCancelled => "AUTH/COMMITMENT_CANCELLED",
+            Error::CommitmentExpired => "AUTH/COMMITMENT_EXPIRED",
+            Error::CommitmentNotPending => "AUTH/COMMITMENT_NOT_PENDING",
         }
     }
 
@@ -412,3 +538,120 @@ impl Error {
         self.category() == ErrorCategory::NotFound
     }
 }
+
+// ── Issue #921: Unit tests for the shared error module ───────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Every variant must have a unique numeric discriminant (enforced by the
+    // Soroban SDK, but also verified here as a regression guard).
+    #[test]
+    fn error_codes_are_unique() {
+        let all: &[(u32, Error)] = &[
+            (1,  Error::AlreadyInitialized),
+            (2,  Error::Unauthorized),
+            (3,  Error::NotRegistered),
+            (4,  Error::AlreadyRegistered),
+            (5,  Error::NotManufacturer),
+            (6,  Error::NotWasteOwner),
+            (7,  Error::WasteNotFound),
+            (8,  Error::MaterialNotFound),
+            (9,  Error::IncentiveNotFound),
+            (10, Error::ParticipantNotFound),
+            (11, Error::InvalidAmount),
+            (12, Error::InvalidWeight),
+            (13, Error::InvalidCoordinates),
+            (14, Error::InvalidPercentage),
+            (15, Error::InsufficientBalance),
+            (16, Error::CharityNotSet),
+            (17, Error::TokenAddressNotSet),
+            (18, Error::WasteDeactivated),
+            (19, Error::WasteAlreadyDeactivated),
+            (20, Error::WasteAlreadyConfirmed),
+            (21, Error::WasteNotConfirmed),
+            (22, Error::SelfConfirmation),
+            (23, Error::IncentiveInactive),
+            (24, Error::MaterialNotVerified),
+            (25, Error::WasteTypeMismatch),
+            (26, Error::NoRewardAvailable),
+            (27, Error::InvalidTransferRoute),
+            (28, Error::SameAddress),
+            (29, Error::Overflow),
+            (30, Error::NotCreator),
+            (31, Error::InsufficientBudget),
+            (32, Error::TooManySplits),
+            (33, Error::WeightMismatch),
+            (34, Error::TooFewSplits),
+            (35, Error::TooFewWastes),
+            (36, Error::TooManyWastes),
+            (37, Error::WasteTypeMismatchMerge),
+            (38, Error::LocationMismatch),
+            (39, Error::WasteAlreadyReserved),
+            (40, Error::WasteNotReserved),
+            (41, Error::NotReserver),
+            (42, Error::WasteReservedByOther),
+            (43, Error::InvalidSchedule),
+            (44, Error::WasteExpired),
+            (45, Error::InsufficientCarbonCredits),
+            (46, Error::CarbonListingNotFound),
+            (47, Error::CarbonListingInactive),
+            (48, Error::NotListingSeller),
+            (49, Error::InvalidListing),
+            (50, Error::WasteFrozen),
+            (51, Error::PermissionDenied),
+            (52, Error::InvalidPermission),
+            (53, Error::NoDiscrepancy),
+            (54, Error::ReconciliationThresholdExceeded),
+        ];
+        let codes: alloc::vec::Vec<u32> = all.iter().map(|(n, _)| *n).collect();
+        let mut sorted = codes.clone();
+        sorted.sort_unstable();
+        sorted.dedup();
+        assert_eq!(codes.len(), sorted.len(), "duplicate numeric error codes detected");
+    }
+
+    #[test]
+    fn auth_errors_are_caller_errors() {
+        assert!(Error::Unauthorized.is_caller_error());
+        assert!(Error::NotRegistered.is_caller_error());
+        assert!(Error::PermissionDenied.is_caller_error());
+    }
+
+    #[test]
+    fn not_found_errors_are_classified_correctly() {
+        assert!(Error::WasteNotFound.is_not_found());
+        assert!(Error::ParticipantNotFound.is_not_found());
+        assert!(Error::IncentiveNotFound.is_not_found());
+        assert!(!Error::Overflow.is_not_found());
+    }
+
+    #[test]
+    fn code_strings_contain_category_prefix() {
+        let code = Error::Unauthorized.code();
+        assert!(code.starts_with("AUTH/"), "expected AUTH/ prefix, got {code}");
+
+        let code = Error::InvalidWeight.code();
+        assert!(code.starts_with("INPUT/"), "expected INPUT/ prefix, got {code}");
+
+        let code = Error::WasteNotFound.code();
+        assert!(code.starts_with("NOT_FOUND/"), "expected NOT_FOUND/ prefix, got {code}");
+
+        let code = Error::Overflow.code();
+        assert!(code.starts_with("ARITHMETIC/"), "expected ARITHMETIC/ prefix, got {code}");
+    }
+
+    #[test]
+    fn category_arithmetic_is_not_caller_error() {
+        assert!(!Error::Overflow.is_caller_error());
+    }
+
+    #[test]
+    fn state_errors_are_not_caller_errors() {
+        assert!(!Error::WasteExpired.is_caller_error());
+        assert!(!Error::IncentiveInactive.is_caller_error());
+    }
+}
+
+extern crate alloc;

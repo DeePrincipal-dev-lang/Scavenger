@@ -37,7 +37,7 @@ export function LandingPage() {
       {/* Nav */}
       <header className="flex h-14 items-center justify-between border-b px-6">
         <div className="flex items-center gap-2 font-bold">
-          <Recycle className="h-5 w-5 text-primary" />
+          <Recycle className="h-5 w-5 text-primary" aria-hidden="true" />
           Scavngr
         </div>
         <div className="flex items-center gap-2">
@@ -78,7 +78,7 @@ export function LandingPage() {
               {STEPS.map((step, i) => (
                 <div key={step.title} className="flex flex-col items-center gap-3 text-center">
                   <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
-                    <step.icon className="h-7 w-7 text-primary" />
+                    <step.icon className="h-7 w-7 text-primary" aria-hidden="true" />
                   </div>
                   <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                     Step {i + 1}
@@ -118,7 +118,7 @@ export function LandingPage() {
       <footer className="border-t px-6 py-8">
         <div className="mx-auto flex max-w-4xl flex-col items-center gap-4 sm:flex-row sm:justify-between">
           <div className="flex items-center gap-2 text-sm font-semibold">
-            <Recycle className="h-4 w-4 text-primary" />
+            <Recycle className="h-4 w-4 text-primary" aria-hidden="true" />
             Scavngr
           </div>
           <div className="flex gap-4">

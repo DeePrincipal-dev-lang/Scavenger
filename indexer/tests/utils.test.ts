@@ -1,65 +1,55 @@
-import { describe, it, expect } from 'vitest';
-import {
-  isValidAddress,
-  isValidWasteType,
-  isValidRole,
-  isValidWeight,
-  formatAddress,
-  formatWeight,
-  formatDate,
-  truncateString,
-} from '../src/utils';
+/**
+ * utils tests (#917)
+ *
+ * validators.ts and formatters.ts were removed in #917 — they exported helper
+ * functions (isValidAddress, formatWeight, etc.) that were never called by any
+ * production code in src/.  Their tests are removed here accordingly.
+ *
+ * The only remaining utility is the structured logger, which is tested by the
+ * fact that it is imported and used successfully by 8 production modules.
+ */
 
-describe('Utility Functions', () => {
-  describe('Validators', () => {
-    it('should validate addresses', () => {
-      expect(isValidAddress('GBUQWP3BOUZX34LOCALBTJVYOUSBTCHAU4YX5LK4EVRCNRANEA2AR5G')).toBe(true);
-      expect(isValidAddress('')).toBe(false);
-      expect(isValidAddress('invalid-address')).toBe(false);
-    });
+import { logger } from '../src/utils';
 
-    it('should validate waste types', () => {
-      expect(isValidWasteType('Paper')).toBe(true);
-      expect(isValidWasteType('Plastic')).toBe(true);
-      expect(isValidWasteType('Invalid')).toBe(false);
-    });
+describe('logger', () => {
+  let stdoutSpy: jest.SpyInstance;
+  let stderrSpy: jest.SpyInstance;
 
-    it('should validate roles', () => {
-      expect(isValidRole('Recycler')).toBe(true);
-      expect(isValidRole('Collector')).toBe(true);
-      expect(isValidRole('Manufacturer')).toBe(true);
-      expect(isValidRole('Admin')).toBe(false);
-    });
-
-    it('should validate weight', () => {
-      expect(isValidWeight(10)).toBe(true);
-      expect(isValidWeight(0)).toBe(false);
-      expect(isValidWeight(-5)).toBe(false);
-    });
+  beforeEach(() => {
+    stdoutSpy = jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation(() => true);
   });
 
-  describe('Formatters', () => {
-    it('should format address', () => {
-      const addr = 'GBUQWP3BOUZX34LOCALBTJVYOUSBTCHAU4YX5LK4EVRCNRANEA2AR5G';
-      const formatted = formatAddress(addr);
-      expect(formatted).toMatch(/^GBU.*AR5G$/);
-    });
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
 
-    it('should format weight', () => {
-      expect(formatWeight(10.5)).toBe('10.50 kg');
-      expect(formatWeight('20')).toBe('20.00 kg');
-    });
+  it('writes info messages to stdout as JSON', () => {
+    logger.info('test message', { key: 'value' });
+    expect(stdoutSpy).toHaveBeenCalled();
+    const written = stdoutSpy.mock.calls[0][0] as string;
+    const parsed = JSON.parse(written);
+    expect(parsed.level).toBe('INFO');
+    expect(parsed.message).toBe('test message');
+    expect(parsed.key).toBe('value');
+    expect(parsed.service).toBe('indexer');
+  });
 
-    it('should format date', () => {
-      const date = new Date('2024-01-15');
-      const formatted = formatDate(date);
-      expect(formatted).toContain('Jan');
-      expect(formatted).toContain('15');
-    });
+  it('writes error messages to stderr', () => {
+    logger.error('boom', { code: 500 });
+    expect(stderrSpy).toHaveBeenCalled();
+    const written = stderrSpy.mock.calls[0][0] as string;
+    const parsed = JSON.parse(written);
+    expect(parsed.level).toBe('ERROR');
+    expect(parsed.message).toBe('boom');
+    expect(parsed.code).toBe(500);
+  });
 
-    it('should truncate strings', () => {
-      expect(truncateString('Hello World', 5)).toBe('Hello...');
-      expect(truncateString('Hi', 5)).toBe('Hi');
-    });
+  it('includes a timestamp in every log entry', () => {
+    logger.info('ts-check');
+    const written = stdoutSpy.mock.calls[0][0] as string;
+    const parsed = JSON.parse(written);
+    expect(parsed.timestamp).toBeDefined();
+    expect(new Date(parsed.timestamp).getTime()).not.toBeNaN();
   });
 });

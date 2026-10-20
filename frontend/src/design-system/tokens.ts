@@ -173,7 +173,7 @@ export const semanticTokens = {
     'card-foreground': '222 47% 11%',
     popover: '0 0% 100%',
     'popover-foreground': '222 47% 11%',
-    primary: '142 76% 36%',          // green-600
+    primary: '142 76% 30%',          // green-700 equivalent — 4.61:1 on white (raised from 36%)
     'primary-foreground': '0 0% 100%',
     secondary: '210 40% 94%',
     'secondary-foreground': '222 47% 11%',
@@ -203,7 +203,7 @@ export const semanticTokens = {
     'muted-foreground': '215 25% 68%',
     accent: '142 30% 20%',
     'accent-foreground': '142 69% 80%',
-    destructive: '0 72% 55%',
+    destructive: '0 72% 58%',        // raised from 55% — 4.67:1 on dark bg — WCAG AA
     'destructive-foreground': '0 0% 100%',
     border: '217 33% 22%',
     input: '217 33% 22%',

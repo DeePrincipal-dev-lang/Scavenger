@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { WasteTypeStep } from './steps/WasteTypeStep';
@@ -8,10 +9,11 @@ import { LocationStep } from './steps/LocationStep';
 import { ReviewStep } from './steps/ReviewStep';
 import { ProgressIndicator } from './ProgressIndicator';
 import { WasteType } from '@/api/types';
+import { wasteSubmissionSchema } from '@/lib/validation/wasteSubmission';
 
 interface WasteSubmissionFormData {
-  wasteType: WasteType;
-  weight: number;
+  wasteType: WasteType | '';
+  weight: string;
   latitude: string;
   longitude: string;
   notes: string;
@@ -27,9 +29,10 @@ const STEPS = [
 export function WasteSubmissionWizard({ onComplete, onCancel }: { onComplete: (data: WasteSubmissionFormData) => void; onCancel: () => void }) {
   const [currentStep, setCurrentStep] = useState(1);
   const { register, handleSubmit, watch, setValue, trigger, formState: { errors } } = useForm<WasteSubmissionFormData>({
+    resolver: zodResolver(wasteSubmissionSchema('grams')),
     defaultValues: {
       wasteType: WasteType.Paper,
-      weight: 0,
+      weight: '',
       latitude: '',
       longitude: '',
       notes: '',
@@ -42,7 +45,7 @@ export function WasteSubmissionWizard({ onComplete, onCancel }: { onComplete: (d
     localStorage.setItem('waste_submission_draft', JSON.stringify({ ...formData, step: currentStep }));
   };
 
-  const loadDraft = () => {
+  const _loadDraft = () => {
     const draft = localStorage.getItem('waste_submission_draft');
     if (draft) {
       const parsed = JSON.parse(draft);

@@ -1,16 +1,10 @@
-import { useState } from 'react';
-import { UseFormRegister, FieldErrors } from 'react-hook-form';
-import { Input } from '../../ui/Input';
-import { LocateFixed } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { useState } from 'react'
+import { Input } from '../../ui/Input'
+import { LocateFixed } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { LocationStepProps } from '../types'
 
-interface LocationStepProps {
-  register: UseFormRegister<any>;
-  errors: FieldErrors;
-  formData: any;
-}
-
-export function LocationStep({ register, errors, formData }: LocationStepProps) {
+export function LocationStep({ register, errors, formData: _formData }: LocationStepProps) {
   const [locating, setLocating] = useState(false);
   const [locError, setLocError] = useState<string | null>(null);
 
@@ -61,11 +55,7 @@ export function LocationStep({ register, errors, formData }: LocationStepProps) 
             min="-90"
             max="90"
             placeholder="e.g. 40.7128"
-            {...register('latitude', { 
-              required: 'Latitude is required',
-              min: { value: -90, message: 'Invalid latitude' },
-              max: { value: 90, message: 'Invalid latitude' }
-            })}
+            {...register('latitude')}
           />
           {errors.latitude && (
             <p className="text-sm text-red-500 mt-1">{errors.latitude.message as string}</p>
@@ -83,11 +73,7 @@ export function LocationStep({ register, errors, formData }: LocationStepProps) 
             min="-180"
             max="180"
             placeholder="e.g. -74.0060"
-            {...register('longitude', { 
-              required: 'Longitude is required',
-              min: { value: -180, message: 'Invalid longitude' },
-              max: { value: 180, message: 'Invalid longitude' }
-            })}
+            {...register('longitude')}
           />
           {errors.longitude && (
             <p className="text-sm text-red-500 mt-1">{errors.longitude.message as string}</p>

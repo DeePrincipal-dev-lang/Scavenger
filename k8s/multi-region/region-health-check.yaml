@@ -1,0 +1,104 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: region-health-check
+  namespace: scavenger
+data:
+  check-region.sh: |
+    #!/bin/bash
+    set -euo pipefail
+    
+    REGION="${1:-}"
+    ENDPOINT="${2:-}"
+    
+    if [ -z "$REGION" ] || [ -z "$ENDPOINT" ]; then
+      echo "Usage: $0 <region> <endpoint>"
+      exit 1
+    fi
+    
+    echo "Checking region: $REGION"
+    
+    # HTTP health check
+    HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 "https://$ENDPOINT/health" 2>/dev/null || echo "000")
+    if [ "$HTTP_STATUS" != "200" ]; then
+      echo "FAIL: HTTP health check returned $HTTP_STATUS"
+      exit 1
+    fi
+    echo "PASS: HTTP health check (200 OK)"
+    
+    # Response time check
+    RESPONSE_TIME=$(curl -s -o /dev/null -w "%{time_total}" --connect-timeout 5 "https://$ENDPOINT/health" 2>/dev/null || echo "999")
+    if [ "$(echo "$RESPONSE_TIME > 5" | bc -l)" -eq 1 ]; then
+      echo "FAIL: Response time too high: ${RESPONSE_TIME}s"
+      exit 1
+    fi
+    echo "PASS: Response time (${RESPONSE_TIME}s)"
+    
+    # Database connectivity check
+    DB_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 "https://$ENDPOINT/health/db" 2>/dev/null || echo "000")
+    if [ "$DB_STATUS" != "200" ]; then
+      echo "FAIL: Database health check returned $DB_STATUS"
+      exit 1
+    fi
+    echo "PASS: Database connectivity"
+    
+    # Redis connectivity check
+    REDIS_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 "https://$ENDPOINT/health/redis" 2>/dev/null || echo "000")
+    if [ "$REDIS_STATUS" != "200" ]; then
+      echo "WARN: Redis health check returned $REDIS_STATUS (non-critical)"
+    else
+      echo "PASS: Redis connectivity"
+    fi
+    
+    echo "Region $REGION: HEALTHY"
+    exit 0
+
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: region-health-check
+  namespace: scavenger
+spec:
+  schedule: "*/5 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: health-checker
+            image: curlimages/curl:latest
+            command:
+            - /bin/sh
+            - -c
+            - |
+              for region in us-east-1 us-east-2; do
+                ENDPOINT="${region}-scavenger.scavenger.app"
+                /mnt/checks/check-region.sh "$region" "$ENDPOINT"
+                if [ $? -ne 0 ]; then
+                  echo "ALERT: Region $region is unhealthy"
+                fi
+              done
+            volumeMounts:
+            - name: scripts
+              mountPath: /mnt/checks
+          restartPolicy: OnFailure
+          volumes:
+          - name: scripts
+            configMap:
+              name: region-health-check
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: region-health-exporter
+  namespace: scavenger
+  labels:
+    app: region-health-exporter
+spec:
+  ports:
+  - name: metrics
+    port: 9090
+    targetPort: 9090
+  selector:
+    app: region-health-checker

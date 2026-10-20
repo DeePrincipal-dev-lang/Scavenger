@@ -764,7 +764,7 @@ RUSTFLAGS="-C opt-level=z" cargo build --target wasm32-unknown-unknown --release
 ## Related Documentation
 
 - [Architecture Diagram](./architecture-diagram.svg)
-- [API Reference Guide](./API_REFERENCE_GUIDE.md)
+- [API Reference Guide](./API_REFERENCE.md)
 - [Troubleshooting Guide](./TROUBLESHOOTING_GUIDE.md)
 - [Kubernetes Deployment](./KUBERNETES_DEPLOYMENT.md)
 - [CI/CD Pipeline](./CI_CD_PIPELINE.md)

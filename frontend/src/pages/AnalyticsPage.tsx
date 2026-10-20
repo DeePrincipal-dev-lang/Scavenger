@@ -1,6 +1,6 @@
-import { BarChart3, TrendingUp, Package, Users, Download, PieChart, Activity, Medal } from 'lucide-react'
+import { BarChart3, TrendingUp, Package, Users, Download } from 'lucide-react'
+import { UserBehaviorDashboard } from '@/components/analytics/UserBehaviorDashboard'
 import { StatCard } from '@/components/ui/StatCard'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { useStats } from '@/hooks/useStats'
 import { useAppTitle } from '@/hooks/useAppTitle'
@@ -11,110 +11,10 @@ import { CarbonImpactCard } from '@/components/analytics/CarbonImpactCard'
 import { WasteTypeChart } from '@/components/analytics/WasteTypeChart'
 import { MonthlyTrendsChart } from '@/components/analytics/MonthlyTrendsChart'
 import { RecyclingRateChart } from '@/components/analytics/RecyclingRateChart'
-import { useState } from 'react'
-
-// ── Static mock data for new charts ──────────────────────────────────────────
-
-const TOP_MATERIALS = [
-  { label: 'Plastic', value: 73, color: 'bg-blue-500' },
-  { label: 'Metal', value: 51, color: 'bg-green-500' },
-  { label: 'Glass', value: 42, color: 'bg-purple-500' },
-  { label: 'Paper', value: 38, color: 'bg-orange-500' },
-  { label: 'E-Waste', value: 22, color: 'bg-red-500' },
-]
-
-const PARTICIPANT_CONTRIBUTIONS = [
-  { address: '0xAB12…CD34', role: 'Recycler', items: 142, pct: 34 },
-  { address: '0xEF56…GH78', role: 'Collector', items: 98, pct: 23 },
-  { address: '0xIJ90…KL12', role: 'Recycler', items: 76, pct: 18 },
-  { address: '0xMN34…OP56', role: 'Manufacturer', items: 54, pct: 13 },
-  { address: '0xQR78…ST90', role: 'Collector', items: 50, pct: 12 },
-]
-
-const ROLE_COLORS: Record<string, string> = {
-  Recycler: 'bg-blue-500',
-  Collector: 'bg-green-500',
-  Manufacturer: 'bg-purple-500',
-}
-
-// ── Top Materials Chart ───────────────────────────────────────────────────────
-
-function TopMaterialsChart() {
-  const max = Math.max(...TOP_MATERIALS.map((m) => m.value))
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Medal className="h-4 w-4" />
-          Top Materials by Volume
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {TOP_MATERIALS.map(({ label, value, color }, i) => (
-          <div key={label} className="space-y-1">
-            <div className="flex items-center justify-between text-sm">
-              <span className="flex items-center gap-1.5">
-                <span className="text-muted-foreground text-xs w-4">#{i + 1}</span>
-                {label}
-              </span>
-              <span className="font-medium text-xs">{value} t</span>
-            </div>
-            <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-              <div
-                className={`h-full ${color} transition-all duration-500`}
-                style={{ width: `${(value / max) * 100}%` }}
-              />
-            </div>
-          </div>
-        ))}
-      </CardContent>
-    </Card>
-  )
-}
-
-// ── Participant Contribution Chart ────────────────────────────────────────────
-
-function ParticipantContributionChart() {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Users className="h-4 w-4" />
-          Participant Contributions
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {PARTICIPANT_CONTRIBUTIONS.map(({ address, role, items, pct }) => (
-          <div key={address} className="space-y-1">
-            <div className="flex items-center justify-between text-sm">
-              <span className="font-mono text-xs">{address}</span>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">{role}</span>
-                <span className="font-medium text-xs">{items} items</span>
-              </div>
-            </div>
-            <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-              <div
-                className={`h-full ${ROLE_COLORS[role] ?? 'bg-primary'} transition-all duration-500`}
-                style={{ width: `${pct}%` }}
-              />
-            </div>
-          </div>
-        ))}
-        <div className="flex items-center gap-3 pt-2 flex-wrap">
-          {Object.entries(ROLE_COLORS).map(([role, color]) => (
-            <span key={role} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <span className={`h-2 w-2 rounded-full ${color}`} />
-              {role}
-            </span>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-// ── Page ──────────────────────────────────────────────────────────────────────
+import { TopMaterialsChart } from '@/components/analytics/TopMaterialsChart'
+import { ParticipantContributionChart } from '@/components/analytics/ParticipantContributionChart'
+import { QuickStatsCard } from '@/components/analytics/QuickStatsCard'
+import { useState, useCallback } from 'react'
 
 export function AnalyticsPage() {
   useAppTitle('Analytics')
@@ -124,6 +24,22 @@ export function AnalyticsPage() {
     start: null,
     end: null,
   })
+
+  // Memoize callback handlers to prevent unnecessary re-renders of child components
+  const handleDateRangeChange = useCallback(
+    (newRange: { start: Date | null; end: Date | null }) => {
+      setDateRange(newRange)
+    },
+    []
+  )
+
+  const handleExportCSV = useCallback(() => {
+    exportToCSV()
+  }, [exportToCSV])
+
+  const handleExportPDF = useCallback(() => {
+    exportToPDF()
+  }, [exportToPDF])
 
   return (
     <div className="space-y-6">
@@ -135,12 +51,12 @@ export function AnalyticsPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <DateRangeSelector value={dateRange} onChange={setDateRange} />
-          <Button onClick={exportToCSV} variant="outline" size="sm">
+          <DateRangeSelector value={dateRange} onChange={handleDateRangeChange} />
+          <Button onClick={handleExportCSV} variant="outline" size="sm">
             <Download className="h-4 w-4 mr-2" />
             CSV
           </Button>
-          <Button onClick={exportToPDF} variant="outline" size="sm">
+          <Button onClick={handleExportPDF} variant="outline" size="sm">
             <Download className="h-4 w-4 mr-2" />
             PDF
           </Button>
@@ -198,36 +114,10 @@ export function AnalyticsPage() {
         <div className="lg:col-span-2">
           <RecyclingRateChart />
         </div>
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Activity className="h-4 w-4" />
-              Quick Stats
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {[
-              { label: 'Plastic', value: 73, color: 'bg-blue-500' },
-              { label: 'Metal', value: 51, color: 'bg-green-500' },
-              { label: 'Glass', value: 42, color: 'bg-purple-500' },
-              { label: 'Paper', value: 38, color: 'bg-orange-500' },
-              { label: 'E-Waste', value: 22, color: 'bg-red-500' },
-            ].map(({ label, value, color }) => (
-              <div key={label} className="space-y-1">
-                <div className="flex justify-between text-sm">
-                  <span>{label}</span>
-                  <span className="font-medium">{value}%</span>
-                </div>
-                <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                  <div className={`h-full ${color} transition-all duration-500`} style={{ width: `${value}%` }} />
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+        <QuickStatsCard />
       </div>
 
-      {/* New charts row: top materials + participant contributions */}
+      {/* Top materials + participant contributions */}
       <div className="grid gap-6 lg:grid-cols-2">
         <TopMaterialsChart />
         <ParticipantContributionChart />
@@ -237,6 +127,12 @@ export function AnalyticsPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         <LeaderboardCard />
         <CarbonImpactCard />
+      </div>
+
+      {/* User Behavior Analytics */}
+      <div>
+        <h2 className="mb-4 text-xl font-semibold">User Behavior Analytics</h2>
+        <UserBehaviorDashboard />
       </div>
     </div>
   )

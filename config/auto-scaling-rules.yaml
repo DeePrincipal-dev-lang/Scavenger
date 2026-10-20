@@ -1,0 +1,128 @@
+# Auto-scaling rules configuration
+# Applied across all environments
+
+rules:
+  - name: cpu-utilization
+    description: Scale based on CPU utilization
+    enabled: true
+    trigger:
+      metric: CPUUtilization
+      namespace: AWS/ECS
+      statistic: Average
+      evaluation_periods: 2
+      period_seconds: 60
+    scaling:
+      scale_out:
+        threshold: 60
+        adjustment: 1
+        cooldown_seconds: 60
+      scale_in:
+        threshold: 30
+        adjustment: -1
+        cooldown_seconds: 300
+    limits:
+      min_capacity: 2
+      max_capacity: 20
+
+  - name: memory-utilization
+    description: Scale based on memory utilization
+    enabled: true
+    trigger:
+      metric: MemoryUtilization
+      namespace: AWS/ECS
+      statistic: Average
+      evaluation_periods: 2
+      period_seconds: 60
+    scaling:
+      scale_out:
+        threshold: 70
+        adjustment: 1
+        cooldown_seconds: 60
+      scale_in:
+        threshold: 40
+        adjustment: -1
+        cooldown_seconds: 300
+    limits:
+      min_capacity: 2
+      max_capacity: 20
+
+  - name: request-count
+    description: Scale based on request count per target
+    enabled: true
+    trigger:
+      metric: RequestCountPerTarget
+      namespace: AWS/ApplicationELB
+      statistic: Average
+      evaluation_periods: 3
+      period_seconds: 60
+    scaling:
+      scale_out:
+        threshold: 5000
+        adjustment: 2
+        cooldown_seconds: 120
+      scale_in:
+        threshold: 1000
+        adjustment: -1
+        cooldown_seconds: 300
+    limits:
+      min_capacity: 2
+      max_capacity: 30
+
+  - name: database-connections
+    description: Scale RDS based on connection count
+    enabled: false
+    trigger:
+      metric: DatabaseConnections
+      namespace: AWS/RDS
+      statistic: Average
+      evaluation_periods: 3
+      period_seconds: 300
+    scaling:
+      scale_out:
+        threshold: 400
+        adjustment: 1
+        cooldown_seconds: 600
+      scale_in:
+        threshold: 100
+        adjustment: -1
+        cooldown_seconds: 1800
+
+environments:
+  dev:
+    rules:
+      cpu-utilization:
+        limits:
+          min_capacity: 1
+          max_capacity: 3
+      memory-utilization:
+        limits:
+          min_capacity: 1
+          max_capacity: 3
+
+  staging:
+    rules:
+      cpu-utilization:
+        limits:
+          min_capacity: 2
+          max_capacity: 8
+      memory-utilization:
+        limits:
+          min_capacity: 2
+          max_capacity: 8
+      request-count:
+        enabled: true
+
+  prod:
+    rules:
+      cpu-utilization:
+        limits:
+          min_capacity: 3
+          max_capacity: 20
+      memory-utilization:
+        limits:
+          min_capacity: 3
+          max_capacity: 20
+      request-count:
+        enabled: true
+      database-connections:
+        enabled: true

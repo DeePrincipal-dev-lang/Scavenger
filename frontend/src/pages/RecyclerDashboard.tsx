@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState } from 'react'
 import { Plus, Coins, Recycle, Weight, Zap } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -9,6 +9,7 @@ import { RegisterWasteModal } from '@/components/modals/RegisterWasteModal'
 import { TransferWasteModal } from '@/components/modals/TransferWasteModal'
 import { useAuth } from '@/context/AuthContext'
 import { useAppTitle } from '@/hooks/useAppTitle'
+import { useResource } from '@/hooks/useResource'
 import { ScavengerClient } from '@/api/client'
 import { Material, Incentive, ParticipantStats, WasteType } from '@/api/types'
 import { config } from '@/config'
@@ -25,7 +26,9 @@ const WASTE_LABELS: Record<WasteType, string> = {
   [WasteType.PetPlastic]: 'PET Plastic',
   [WasteType.Plastic]: 'Plastic',
   [WasteType.Metal]: 'Metal',
-  [WasteType.Glass]: 'Glass'
+  [WasteType.Glass]: 'Glass',
+  [WasteType.Organic]: 'Organic',
+  [WasteType.Electronic]: 'Electronic',
 }
 
 function statusVariant(m: Material): 'default' | 'secondary' | 'outline' | 'destructive' {
@@ -47,40 +50,34 @@ export function RecyclerDashboard() {
   const { user } = useAuth()
   const address = user?.address ?? ''
 
-  const [stats, setStats] = useState<ParticipantStats | null>(null)
-  const [wastes, setWastes] = useState<Material[]>([])
-  const [incentives, setIncentives] = useState<Incentive[]>([])
-  const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
   const [transferWasteId, setTransferWasteId] = useState<bigint | null>(null)
 
-  const load = useCallback(async () => {
-    if (!address) return
-    setLoading(true)
-    try {
-      const [participantStats, wasteIds, activeIncentives] = await Promise.all([
-        client.getStats(address),
-        client.getParticipantWastes(address),
-        client.getActiveIncentives()
-      ])
-      setStats(participantStats)
-      setIncentives(activeIncentives.slice(0, 5))
+  const { data, isLoading: loading, reload: load } = useResource(async () => {
+    if (!address) return null
+    const [participantStats, wasteIds, activeIncentives] = await Promise.all([
+      client.getStats(address),
+      client.getParticipantWastes(address),
+      client.getActiveIncentives()
+    ])
 
-      const materials = await Promise.all(
-        wasteIds
-          .slice(-10)
-          .reverse()
-          .map((id) => client.getMaterial(id))
-      )
-      setWastes(materials.filter(Boolean) as Material[])
-    } finally {
-      setLoading(false)
+    const materials = await Promise.all(
+      wasteIds
+        .slice(-10)
+        .reverse()
+        .map((id) => client.getMaterial(id))
+    )
+
+    return {
+      stats: participantStats,
+      incentives: activeIncentives.slice(0, 5),
+      wastes: materials.filter(Boolean) as Material[]
     }
   }, [address])
 
-  useEffect(() => {
-    load()
-  }, [load])
+  const stats: ParticipantStats | null = data?.stats ?? null
+  const wastes: Material[] = data?.wastes ?? []
+  const incentives: Incentive[] = data?.incentives ?? []
 
   return (
     <div className="space-y-6 overflow-x-hidden px-4 py-6 sm:px-0 sm:py-0">

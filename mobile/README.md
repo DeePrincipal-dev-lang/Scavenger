@@ -1,5 +1,22 @@
 # Scavenger Mobile App
 
+> ⚠️ **Status: Unmaintained / Archived**
+>
+> This directory contains scaffolding from an earlier mobile initiative.
+> It is **not actively maintained**, is **not built or tested in CI**, and
+> is **not part of any current release**.
+>
+> **Do not use this code in production.**
+> **Do not add new features here.**
+>
+> If you want to revive the mobile app, please open an issue titled
+> `[Proposal] Revive mobile app` describing scope, tech stack, and
+> maintenance plan, and wait for maintainer approval before writing code.
+
+---
+
+# Scavenger Mobile App
+
 React Native mobile application for iOS and Android platforms.
 
 ## Features
@@ -10,19 +27,15 @@ React Native mobile application for iOS and Android platforms.
 - **Profile Management**: Manage participant profile and settings
 - **Real-time Updates**: Receive notifications for waste transfers and rewards
 
-## Prerequisites
+## Setup
 
-- Node.js 16+
-- React Native CLI
-- Xcode (for iOS development)
-- Android Studio (for Android development)
+Prerequisites, environment variables, and first-time setup for the mobile app are in
+the canonical guide:
 
-## Installation
+➡️ **[Developer Onboarding Guide — Mobile](../docs/DEVELOPER_ONBOARDING.md#mobile-mobile)**
 
-```bash
-cd mobile
-npm install
-```
+The mobile app talks to the backend and the deployed contract, so bring the rest of
+the stack up first — that is covered in the same guide.
 
 ## Development
 
@@ -73,13 +86,7 @@ src/
 
 ## Environment Variables
 
-Create a `.env` file in the mobile directory:
-
-```
-REACT_APP_API_URL=http://localhost:8080
-REACT_APP_CONTRACT_ID=your_contract_id
-REACT_APP_NETWORK=testnet
-```
+See [Developer Onboarding — Environment Variables](../docs/DEVELOPER_ONBOARDING.md#environment-variables).
 
 ## Testing
 

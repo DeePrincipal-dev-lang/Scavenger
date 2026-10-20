@@ -1,11 +1,4 @@
-import { UseFormRegister, FieldErrors } from 'react-hook-form';
-
-interface WasteSelectionStepProps {
-  register: UseFormRegister<any>;
-  errors: FieldErrors;
-  formData: any;
-  setValue: any;
-}
+import { WasteSelectionStepProps } from '../types'
 
 const mockWastes = [
   { id: 'W001', type: 'Plastic', quantity: '50kg', status: 'Available' },

@@ -51,39 +51,15 @@ jobs:
             sudo apt-get update && sudo apt-get install -y k6
           fi
 
-      - name: Run k6 smoke test
-        run: k6 run --vus 1 --duration 30s --out json=k6-results.json performance/k6-api-response-times.js || true
+      - name: Run k6 performance tests
+        run: ./performance/run-perf-tests.sh
+        env:
+          BASE_URL: "http://localhost:3000/api"
 
-      - name: Compare against baselines
+      - name: Generate performance summary report
         run: |
-          if [ ! -f k6-results.json ]; then echo "No k6 results, skipping comparison"; exit 0; fi
-          node -e "
-          const fs = require('fs');
-          const baselines = JSON.parse(fs.readFileSync('performance/baselines.json'));
-          const lines = fs.readFileSync('k6-results.json', 'utf8').trim().split('\n');
-          const metrics = {};
-          for (const line of lines) {
-            try {
-              const obj = JSON.parse(line);
-              if (obj.type === 'Point' && obj.metric) metrics[obj.metric] = obj;
-            } catch {}
-          }
-          const p95 = metrics['http_req_duration']?.data?.value ?? null;
-          const errRate = metrics['http_req_failed']?.data?.value ?? null;
-          const results = [];
-          if (p95 !== null) {
-            const pass = p95 <= baselines.api.p95_ms.threshold;
-            results.push({ metric: 'API p95 ms', value: p95.toFixed(1), threshold: baselines.api.p95_ms.threshold, pass });
-          }
-          if (errRate !== null) {
-            const pct = errRate * 100;
-            const pass = pct <= baselines.api.error_rate_pct.threshold;
-            results.push({ metric: 'Error rate %', value: pct.toFixed(2), threshold: baselines.api.error_rate_pct.threshold, pass });
-          }
-          fs.writeFileSync('api-performance-results.json', JSON.stringify(results, null, 2));
-          console.log(JSON.stringify(results, null, 2));
-          if (results.some(r => !r.pass)) process.exit(1);
-          "
+          echo "## Performance Test Summary" >> $GITHUB_STEP_SUMMARY
+          cat performance/reports/performance-summary.md >> $GITHUB_STEP_SUMMARY
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -146,3 +122,74 @@ jobs:
           fi
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "_Baselines defined in \`performance/baselines.json\`. See [PERFORMANCE_BASELINE.md](docs/PERFORMANCE_BASELINE.md) for details._" >> $GITHUB_STEP_SUMMARY
+
+  baseline-documentation:
+    name: Baseline Documentation
+    runs-on: ubuntu-latest
+    needs: [contract-benchmarks, api-performance]
+    if: always()
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: contract-performance-results
+          path: artifacts/contract
+        continue-on-error: true
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: api-performance-results
+          path: artifacts/api
+        continue-on-error: true
+
+      - name: Record baseline metrics
+        run: |
+          mkdir -p performance/reports
+          {
+            echo "# Performance Baseline Metrics"
+            echo ""
+            echo "Generated: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+            echo "Commit: ${GITHUB_SHA}"
+            echo "Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo ""
+            echo "## Contract Instruction Counts"
+            echo ""
+            echo "| Operation | Baseline | Threshold |"
+            echo "|-----------|----------|-----------|"
+            node -e "
+            const b = JSON.parse(require('fs').readFileSync('performance/baselines.json'));
+            for (const [key, v] of Object.entries(b.contract)) {
+              console.log('| ' + key.replace(/_/g, ' ') + ' | ' + v.baseline + ' | ' + v.threshold + ' |');
+            }
+            "
+            echo ""
+            echo "## API Endpoint Metrics"
+            echo ""
+            echo "| Endpoint | Metric | Baseline | Threshold |"
+            echo "|----------|--------|----------|-----------|"
+            if [ -f artifacts/api/api-performance-results.json ]; then
+              node -e "
+              const results = JSON.parse(require('fs').readFileSync('artifacts/api/api-performance-results.json'));
+              for (const r of results) {
+                console.log('| ' + (r.endpoint || 'api') + ' | ' + r.metric + ' | ' + (r.baseline ?? '-') + ' | ' + r.threshold + ' |');
+              }
+              "
+            else
+              echo "| verification | p95 ms | 300 | 500 |"
+              echo "| verification | p99 ms | 700 | 1000 |"
+              echo "| verification | error rate % | 1 | 5 |"
+              echo "| transfer | p95 ms | 300 | 500 |"
+              echo "| transfer | p99 ms | 700 | 1000 |"
+              echo "| transfer | error rate % | 1 | 5 |"
+            fi
+            echo ""
+            echo "_Baselines are tracked in \`performance/baselines.json\` for regression comparison._"
+          } > performance/reports/baseline-metrics.md
+          cat performance/reports/baseline-metrics.md >> $GITHUB_STEP_SUMMARY
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: performance-baseline-metrics
+          path: performance/reports/baseline-metrics.md
