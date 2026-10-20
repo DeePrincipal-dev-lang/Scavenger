@@ -1,3 +1,7 @@
+//! Blob storage interface. `StorageService` is the trait both primary and archival storage use;
+//! the name `BlobStore` is an alias for it.
+pub use self::StorageService as BlobStore;
+
 /// File storage service (issue #1074 — structured logging).
 ///
 /// ## Logging convention
