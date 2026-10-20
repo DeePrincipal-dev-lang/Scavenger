@@ -1,15 +1,14 @@
 /**
- * Centralized error handling for the indexer
+ * Centralized error handling for the indexer.
+ *
+ * Error codes and the response envelope are imported from `@scavngr/sdk`
+ * so that the indexer and SDK clients share a single source of truth.
  */
 
-export enum ErrorCode {
-  VALIDATION_ERROR = 'VALIDATION_ERROR',
-  DATABASE_ERROR = 'DATABASE_ERROR',
-  NETWORK_ERROR = 'NETWORK_ERROR',
-  NOT_FOUND = 'NOT_FOUND',
-  UNAUTHORIZED = 'UNAUTHORIZED',
-  INTERNAL_ERROR = 'INTERNAL_ERROR',
-}
+import { ErrorCode, type ErrorEnvelope } from '@scavngr/sdk'
+
+export { ErrorCode }
+export type { ErrorEnvelope }
 
 export class AppError extends Error {
   constructor(
@@ -22,7 +21,7 @@ export class AppError extends Error {
     this.name = 'AppError';
   }
 
-  toJSON() {
+  toJSON(): ErrorEnvelope {
     return {
       code: this.code,
       message: this.message,

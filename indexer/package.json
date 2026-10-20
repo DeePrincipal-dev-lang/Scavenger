@@ -12,6 +12,7 @@
     "test:coverage": "jest --runInBand --coverage"
   },
   "dependencies": {
+    "@scavngr/sdk": "file:../packages/scavenger-sdk",
     "@stellar/stellar-sdk": "13.1.0",
     "pg": "8.13.3",
     "dotenv": "16.4.7",

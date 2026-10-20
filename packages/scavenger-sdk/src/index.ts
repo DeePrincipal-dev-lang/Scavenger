@@ -34,7 +34,8 @@ export {
   NetworkError,
   TimeoutError,
 } from './errors'
-export type { SdkError } from './errors'
+export type { SdkError, ErrorEnvelope } from './errors'
+export { ErrorCode } from './errors'
 
 export {
   resolveNetwork,
