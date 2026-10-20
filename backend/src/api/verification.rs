@@ -1,3 +1,6 @@
+//! HTTP handlers for verification. Parse the request, call `services::VerificationService` and
+//! serialise the result. Validation and state transitions belong in the service.
+
 use crate::services::VerificationService;
 use crate::validation::{error_response, sanitize_string, validate_doc_type, validate_required, validate_url, ValidationError};
 use actix_web::{web, HttpResponse};

@@ -1,3 +1,6 @@
+//! Error envelope for API responses. Every error response uses `ApiError` from this module, so the
+//! JSON shape and status mapping are defined in one place.
+
 /// Shared API error type (issue #1073).
 ///
 /// Every handler in `backend/src/api/**` returns `Result<_, ApiError>`.
