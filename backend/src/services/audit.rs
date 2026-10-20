@@ -1,3 +1,8 @@
+//! Audit persistence, querying and export. This module owns the logic: writing entries, the
+//! query functions and the export formats. The HTTP handlers in `api/audit.rs` only parse requests
+//! and call into here. The file is still one module; splitting it into writer, query and export
+//! files is a follow-up.
+
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
