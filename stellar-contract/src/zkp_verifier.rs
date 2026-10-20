@@ -1,86 +1,31 @@
-//! # ZKP Verifier Trait Interface — Issue: decouple proof parsing from verification
+//! # ZKP Verifier Trait Interface
 //!
-//! `zkp.rs` mixes proof-record parsing (deserializing raw bytes into a
-//! [`ParsedProof`]) with verification (recomputing the commitment hash and
-//! comparing it). That coupling makes it hard to unit test verification logic
-//! in isolation, and impossible to substitute a mock verifier in tests that
-//! don't want to depend on the real hashing host function.
+//! Decouples proof parsing from verification and uses the shared primitives
+//! from `zkp::keys` and `zkp::encoding` (issue #1521).
 //!
-//! This module introduces:
-//! * [`ParsedProof`] / [`parse_proof`] — pure parsing/deserialization, no
-//!   verification side effects.
-//! * [`ProofVerifier`] — a trait abstracting "verify a parsed proof", so
-//!   production code can use [`Sha256Verifier`] while tests can use
-//!   [`MockVerifier`].
-//! * Unit tests covering malformed and edge-case proof byte layouts.
+//! * [`ParsedProof`] / [`parse_proof`] — re-exported from [`zkp::encoding`].
+//! * [`ProofVerifier`] — a trait abstracting "verify a parsed proof".
+//! * [`Sha256Verifier`] — production verifier using `zkp::keys::hash_commitment_raw`.
+//! * [`MockVerifier`] — test-only verifier with a fixed result.
+//! * [`parse_and_verify`] — high-level helper.
 
-use soroban_sdk::{BytesN, Env};
+use soroban_sdk::Env;
 
-/// Fixed-width raw proof layout: `secret (32) ++ nonce (32) ++ commitment (32)`.
-pub const RAW_PROOF_LEN: usize = 96;
-
-/// Errors that can occur while parsing a raw proof byte blob.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ProofParseError {
-    /// The byte slice was not exactly [`RAW_PROOF_LEN`] bytes.
-    InvalidLength { expected: usize, actual: usize },
-    /// The byte slice was empty.
-    EmptyInput,
-}
-
-/// A proof that has been deserialized from raw bytes but not yet verified.
-///
-/// Parsing is pure and infallible with respect to cryptography — it only
-/// checks structural shape (lengths). Verification (does the commitment
-/// actually match?) is a separate step performed by a [`ProofVerifier`].
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ParsedProof {
-    pub secret: [u8; 32],
-    pub nonce: [u8; 32],
-    pub commitment: [u8; 32],
-}
-
-/// Parse a raw proof blob (`secret ‖ nonce ‖ commitment`) into a [`ParsedProof`].
-///
-/// This function performs **no cryptographic verification** — it only
-/// validates structural shape so verification logic downstream can assume a
-/// well-formed input.
-pub fn parse_proof(raw: &[u8]) -> Result<ParsedProof, ProofParseError> {
-    if raw.is_empty() {
-        return Err(ProofParseError::EmptyInput);
-    }
-    if raw.len() != RAW_PROOF_LEN {
-        return Err(ProofParseError::InvalidLength {
-            expected: RAW_PROOF_LEN,
-            actual: raw.len(),
-        });
-    }
-
-    let mut secret = [0u8; 32];
-    let mut nonce = [0u8; 32];
-    let mut commitment = [0u8; 32];
-    secret.copy_from_slice(&raw[0..32]);
-    nonce.copy_from_slice(&raw[32..64]);
-    commitment.copy_from_slice(&raw[64..96]);
-
-    Ok(ParsedProof {
-        secret,
-        nonce,
-        commitment,
-    })
-}
+// Re-export the shared encoding types so callers need only import from here.
+pub use crate::zkp::encoding::{parse_proof, ParsedProof, ProofParseError, RAW_PROOF_LEN};
 
 /// Abstraction over "verify that a parsed proof's commitment is valid".
 ///
-/// Production code uses [`Sha256Verifier`] (backed by the Soroban host's
-/// SHA-256 implementation); tests can substitute [`MockVerifier`] to avoid
-/// depending on a live `Env` / host crypto function.
+/// Production code uses [`Sha256Verifier`]; tests can use [`MockVerifier`].
 pub trait ProofVerifier {
     /// Returns `true` if `proof.commitment == SHA-256(proof.secret ++ proof.nonce)`.
     fn verify(&self, proof: &ParsedProof) -> bool;
 }
 
 /// Real verifier backed by the Soroban host's SHA-256 implementation.
+///
+/// Uses [`crate::zkp::keys::hash_commitment_raw`] — the single canonical
+/// preimage construction shared with `zkp.rs` (issue #1521).
 pub struct Sha256Verifier<'a> {
     pub env: &'a Env,
 }
@@ -93,20 +38,12 @@ impl<'a> Sha256Verifier<'a> {
 
 impl<'a> ProofVerifier for Sha256Verifier<'a> {
     fn verify(&self, proof: &ParsedProof) -> bool {
-        let mut preimage_bytes = [0u8; 64];
-        preimage_bytes[0..32].copy_from_slice(&proof.secret);
-        preimage_bytes[32..64].copy_from_slice(&proof.nonce);
-
-        let preimage = soroban_sdk::Bytes::from_array(self.env, &preimage_bytes);
-        let hash = self.env.crypto().sha256(&preimage);
-        let expected: BytesN<32> = hash.into();
-
-        expected.to_array() == proof.commitment
+        let hash = crate::zkp::keys::hash_commitment_raw(self.env, &proof.secret, &proof.nonce);
+        hash.to_array() == proof.commitment
     }
 }
 
-/// Test-only verifier that returns a fixed, caller-controlled result,
-/// letting verification-consuming code be unit tested without an `Env`.
+/// Test-only verifier that returns a fixed, caller-controlled result.
 #[derive(Debug, Clone, Copy)]
 pub struct MockVerifier {
     pub result: bool,
@@ -129,9 +66,6 @@ impl ProofVerifier for MockVerifier {
 }
 
 /// High-level helper: parse then verify using any [`ProofVerifier`] impl.
-///
-/// Returns `Ok(true)`/`Ok(false)` for structurally valid proofs depending on
-/// verification outcome, or `Err` if the raw bytes could not be parsed.
 pub fn parse_and_verify<V: ProofVerifier>(
     raw: &[u8],
     verifier: &V,
@@ -243,5 +177,50 @@ mod tests {
         let a = parse_proof(&sample_raw(1, 2, 3)).unwrap();
         let b = parse_proof(&sample_raw(4, 2, 3)).unwrap();
         assert_ne!(a, b);
+    }
+
+    // ── Shared test vectors (issue #1521) ─────────────────────────────────────
+    // Sha256Verifier must accept proofs built with the canonical hash, and must
+    // reject proofs with a mismatched commitment.
+
+    #[test]
+    fn sha256_verifier_accepts_correct_proof_for_all_test_vectors() {
+        use soroban_sdk::{BytesN, Env};
+        let env = Env::default();
+        for (s, n, desc) in crate::zkp::keys::TEST_VECTORS {
+            // Build a genuine commitment via the shared key hash.
+            let commitment = crate::zkp::keys::hash_commitment_raw(&env, &[*s; 32], &[*n; 32]);
+            let mut raw = vec![*s; 32];
+            raw.extend(vec![*n; 32]);
+            raw.extend(commitment.to_array());
+
+            let proof = parse_proof(&raw).expect("should parse");
+            let verifier = Sha256Verifier::new(&env);
+            assert!(
+                verifier.verify(&proof),
+                "Sha256Verifier rejected a valid proof for vector '{}'",
+                desc
+            );
+        }
+    }
+
+    #[test]
+    fn sha256_verifier_rejects_tampered_commitment_for_all_test_vectors() {
+        use soroban_sdk::Env;
+        let env = Env::default();
+        for (s, n, desc) in crate::zkp::keys::TEST_VECTORS {
+            // Use a zeroed-out commitment (wrong hash).
+            let mut raw = vec![*s; 32];
+            raw.extend(vec![*n; 32]);
+            raw.extend(vec![0u8; 32]); // wrong commitment
+
+            let proof = parse_proof(&raw).expect("should parse");
+            let verifier = Sha256Verifier::new(&env);
+            assert!(
+                !verifier.verify(&proof),
+                "Sha256Verifier accepted a tampered commitment for vector '{}'",
+                desc
+            );
+        }
     }
 }

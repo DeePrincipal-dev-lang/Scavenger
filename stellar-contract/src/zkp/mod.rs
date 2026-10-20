@@ -78,6 +78,10 @@
 //! zkp::verify_commitment(env, &committer, commitment_id, &secret_bytes, &nonce_bytes)?;
 //! ```
 
+// ── Shared ZKP primitives (issue #1521) ──────────────────────────────────────
+pub mod keys;
+pub mod encoding;
+
 use soroban_sdk::{contracttype, symbol_short, Address, BytesN, Env};
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -159,12 +163,11 @@ pub enum CommitmentError {
 ///
 /// The caller is responsible for choosing a fresh, unpredictable `nonce` for
 /// each commitment.
+///
+/// Delegates to [`keys::hash_commitment`] — the single canonical implementation
+/// shared with `zkp_verifier.rs` (issue #1521).
 pub fn compute_commitment(env: &Env, secret: &BytesN<32>, nonce: &BytesN<32>) -> Commitment {
-    // Concatenate secret ‖ nonce into a 64-byte buffer
-    let mut preimage = soroban_sdk::Bytes::new(env);
-    preimage.extend_from_array(&secret.to_array());
-    preimage.extend_from_array(&nonce.to_array());
-    env.crypto().sha256(&preimage)
+    keys::hash_commitment(env, secret, nonce)
 }
 
 /// Verifies that `SHA-256(secret ‖ nonce) == commitment`.
@@ -752,6 +755,31 @@ mod tests {
                     j
                 );
             }
+        }
+    }
+
+    // ── Shared test vectors (issue #1521) ─────────────────────────────────────
+    // These tests assert that compute_commitment (which delegates to
+    // keys::hash_commitment) produces the same digests as keys::hash_commitment
+    // called directly, confirming that both code paths use the same hash.
+
+    /// compute_commitment must agree with keys::hash_commitment for every
+    /// shared test vector defined in zkp::keys::TEST_VECTORS.
+    #[test]
+    fn shared_test_vectors_agree_with_keys_module() {
+        let env = Env::default();
+        for (s, n, desc) in crate::zkp::keys::TEST_VECTORS {
+            let secret = make_bytes32(&env, *s);
+            let nonce = make_bytes32(&env, *n);
+
+            let via_compute = compute_commitment(&env, &secret, &nonce);
+            let via_keys = crate::zkp::keys::hash_commitment(&env, &secret, &nonce);
+
+            assert_eq!(
+                via_compute, via_keys,
+                "compute_commitment disagrees with keys::hash_commitment on vector '{}'",
+                desc
+            );
         }
     }
 }
