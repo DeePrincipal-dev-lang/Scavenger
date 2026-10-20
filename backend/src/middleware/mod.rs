@@ -1,3 +1,6 @@
+//! Ownership: request protection (rate limits, CORS and CSRF) is in `middleware/`. `security/` keeps
+//! the crypto and auth primitives only.
+
 // #1158: `csrf.rs` was removed — it was imported but never `.wrap()`-ed into
 // the active router (see main.rs's App builder), so it was dead weight left
 // over from an earlier auth scheme. CSRF protection is out of scope for the

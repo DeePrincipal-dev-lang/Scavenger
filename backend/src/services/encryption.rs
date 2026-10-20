@@ -1,3 +1,6 @@
+//! Ownership: encryption primitives and key derivation live in `crypto/`. This module is the
+//! service-level wrapper that uses them. `encryption_verification.rs` checks the wrapper at runtime.
+
 //! Encryption service using shared cryptographic primitives
 //! 
 //! This service provides high-level encryption operations for the application.

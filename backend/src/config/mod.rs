@@ -1,3 +1,6 @@
+//! Ownership: all configuration loading and validation lives in this module. Other modules read
+//! typed values from here instead of calling `env::var`. Remaining direct reads are a follow-up.
+
 //! Configuration module
 //!
 //! This module provides configuration structures for the application.
