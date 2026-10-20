@@ -15,6 +15,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 
 // Load the custom error-message-format rule from the root eslint-rules directory
 const errorMessageFormat = require_('../eslint-rules/error-message-format.js')
+// Load the custom no-only-tests rule from the root eslint-rules directory
+const noOnlyTests = require_('../eslint-rules/no-only-tests.js')
 
 const sharedPlugins = {
   '@typescript-eslint': tsPlugin,
@@ -25,6 +27,9 @@ const sharedPlugins = {
   'simple-import-sort': simpleImportSortPlugin,
   'error-message-format': {
     rules: { 'error-message-format': errorMessageFormat },
+  },
+  'no-only-tests': {
+    rules: { 'no-only-tests': noOnlyTests },
   },
 }
 
@@ -59,6 +64,7 @@ const sharedRules = {
   'require-jsdoc': 'off',
   'valid-jsdoc': 'off',
   'error-message-format/error-message-format': 'error',
+  'no-only-tests/no-only-tests': 'error',
 }
 
 export default [

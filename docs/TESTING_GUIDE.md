@@ -790,3 +790,41 @@ npm test -- -t "test name"
 # Frontend: Debug mode
 node --inspect-brk node_modules/.bin/vitest
 ```
+
+---
+
+## Quarantining a Test
+
+When a test cannot be fixed immediately (e.g. it requires an external service
+that is not available in CI, or it is flaky and the root cause is not yet
+understood), it may be quarantined rather than deleted.
+
+### Rules
+
+1. **Never commit `.only`/`.skip`/`xit`.** A committed `.only` silently disables
+   the rest of the suite and hides real failures. The ESLint rule
+   `no-only-tests/no-only-tests` and the Vitest `forbidOnly` option in
+   `frontend/vitest.config.ts` will reject any such commit.
+2. **Rust `#[ignore]` must link to a tracking issue.** Use the attribute form
+   `#[ignore = "reason; tracked in #<issue>"]` so the reason and the issue that
+   will re-enable the test are recorded in the source.
+3. **Open a GitHub issue** describing why the test is quarantined and what is
+   needed to re-enable it. Reference the issue number in the ignore annotation.
+4. **Quarantine is temporary.** Quarantined tests must be reviewed during each
+   release and either fixed or deleted.
+
+### Example — Rust
+
+```rust
+#[tokio::test]
+#[ignore = "Requires Redis server; tracked in #1525 to run in CI with redis service container"]
+async fn test_redis_backend_integration() {
+    // ...
+}
+```
+
+### Example — Frontend
+
+Prefer deleting a skipped frontend test over leaving it in the suite. If it
+must stay, move it to a separate file gated behind an environment variable and
+document the reason in the test file header.

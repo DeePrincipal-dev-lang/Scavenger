@@ -10,6 +10,9 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test-utils/setup.tsx'],
     include: ['src/**/*.test.{ts,tsx}'],
+    // Prevent committed .only calls from silently disabling the rest of a suite.
+    // Mirrors the ESLint no-only-tests rule at the runner level.
+    forbidOnly: true,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

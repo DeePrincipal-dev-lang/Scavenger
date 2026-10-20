@@ -10,6 +10,7 @@ Custom ESLint rules for the Scavenger monorepo.
 | Rule file | Rule name | Referenced in |
 | :--- | :--- | :--- |
 | `error-message-format.js` | `error-message-format/error-message-format` | `indexer/eslint.config.js`, `frontend/eslint.config.js` |
+| `no-only-tests.js` | `no-only-tests/no-only-tests` | `frontend/eslint.config.js` |
 
 No rules were removed.
 

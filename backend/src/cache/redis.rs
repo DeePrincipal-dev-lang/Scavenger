@@ -493,7 +493,7 @@ mod tests {
     // They are marked as ignored by default
     
     #[tokio::test]
-    #[ignore = "Requires Redis server"]
+    #[ignore = "Requires Redis server; tracked in #1525 to run in CI with redis service container"]
     async fn test_redis_backend_integration() {
         let backend = RedisBackend::new("redis://localhost:6379")
             .expect("Failed to create Redis backend");
@@ -530,7 +530,7 @@ mod tests {
     }
     
     #[tokio::test]
-    #[ignore = "Requires Redis server"]
+    #[ignore = "Requires Redis server; tracked in #1525 to run in CI with redis service container"]
     async fn test_redis_backend_ttl() {
         let backend = RedisBackend::new("redis://localhost:6379")
             .expect("Failed to create Redis backend");
@@ -559,7 +559,7 @@ mod tests {
     }
     
     #[tokio::test]
-    #[ignore = "Requires Redis server"]
+    #[ignore = "Requires Redis server; tracked in #1525 to run in CI with redis service container"]
     async fn test_redis_backend_set_many() {
         let backend = RedisBackend::new("redis://localhost:6379")
             .expect("Failed to create Redis backend");
@@ -585,7 +585,7 @@ mod tests {
     }
     
     #[tokio::test]
-    #[ignore = "Requires Redis server"]
+    #[ignore = "Requires Redis server; tracked in #1525 to run in CI with redis service container"]
     async fn test_redis_backend_get_many() {
         let backend = RedisBackend::new("redis://localhost:6379")
             .expect("Failed to create Redis backend");
