@@ -35,9 +35,6 @@ pub mod participant;
 pub mod waste;
 /// Incentive creation, scheduling, and reward-claim helpers.
 pub mod incentive;
-/// On-chain aggregation helpers for stats and metrics (debug-only).
-#[cfg(feature = "debug")]
-pub mod contract_analytics;
 
 // ── Issue #934: Participant storage consolidation ───────────────────────────
 /// Centralized participant storage helpers, eliminating duplicates and providing
@@ -125,7 +122,6 @@ pub use types::{
 pub use types::calculate_carbon_credits;
 pub use verification::{VerificationRecord, VerificationState, VerificationWorkflow};
 pub use upgrade::{UpgradeProposal, UpgradeStatus, ProxyState, UpgradeHistory};
-pub use analytics::{AnalyticsReport, ReportType, CustomQuery, AggregationType, AnalyticsDataPoint, AnalyticsEngine};
 #[cfg(feature = "debug")]
 pub use explorer::{TransactionTracker, TransactionType, TransactionStatus, ExplorerConfig};
 
