@@ -78,7 +78,9 @@ pub mod type_utils;
 /// #816 — Hash-based commitment scheme for privacy-preserving (ZKP-style) operations.
 pub mod zkp;
 pub mod zkp_verifier;
-/// #817 — Versioned cryptographic key storage and rotation.
+/// #817 — Versioned cryptographic key storage and rotation (issue #1515).
+/// Split into submodules: auth (centralized authorization), types (enums/structs),
+/// schedule (read-only operations), lifecycle (mutating operations).
 pub mod key_rotation;
 
 // ── Issue #925: domain-split modules ─────────────────────────────────────────

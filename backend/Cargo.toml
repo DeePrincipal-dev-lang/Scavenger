@@ -35,30 +35,11 @@ async-trait = "0.1"
 anyhow = "1.0"
 tracing = "0.1"
 tracing-subscriber = "0.3"
-# #1085: audited against actual `use`/path references in src/. Anything not
-# reachable that way was dropped; see the removed list below the table for
-# what was cut and why. `url` and `sha2` were added because search/client.rs
-# and services/archival_storage.rs already import them directly but they
-# were missing from this manifest (only reachable before as transitive deps
-# of elasticsearch/aws-sdk-s3, which does not make them usable via `use`).
-actix-web = "=4.15.0"
-tokio = { version = "=1.53.1", features = ["full"] }
-serde = { version = "=1.0.229", features = ["derive"] }
-serde_json = "=1.0.151"
-uuid = { version = "=1.26.0", features = ["v4", "serde"] }
-chrono = { version = "=0.4.45", features = ["serde"] }
-thiserror = "=1.0.69"
-reqwest = { version = "=0.12.28", features = ["json"] }
-bytes = "=1.12.1"
-async-trait = "=0.1.92"
-anyhow = "=1.0.104"
-tracing = "=0.1.44"
-tracing-subscriber = { version = "=0.3.23", features = ["env-filter", "json"] }
-futures = "=0.3.34"
-printpdf = "=0.12.7"
-actix-ws = "=0.3.1"
-rand = "=0.8.8"
-hex = "=0.4.3"
+futures = "0.3"
+printpdf = "0.12"
+actix-ws = "0.3"
+rand = "0.8"
+hex = "0.4"
 actix-cors = "=0.7.2"
 elasticsearch = "=9.1.0-alpha.1"
 flate2 = "=1.1.10"
