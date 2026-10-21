@@ -113,13 +113,6 @@ path = "src/lib.rs"
 name = "scavenger-backend"
 path = "src/main.rs"
 
-[dependencies.dashmap]
-version = "5.5"
-features = ["serde"]
-
-[dependencies.lru]
-version = "0.11"
-
-[dependencies.redis]
-version = "0.24"
-features = ["tokio-comp", "connection-manager"]
+# #1563: `dashmap`, `lru` and `redis` were reported unused by cargo-machete
+# (no `use`/path reference anywhere in src/ or tests/) and have been removed.
+# Re-run `cargo machete` after adding any new module that needs them.
