@@ -22,9 +22,8 @@
 //! - `IMPLEMENTATION_SUMMARY_AUTH.md` (token refresh) has no regression test in this module
 //! - `IMPLEMENTATION_SUMMARY_RATE_LIMIT.md` (burst window) lacks a deterministic test
 
-#[cfg(test)]
 mod tests {
-    use crate::{
+    use scavenger_backend::{
         api::pagination::{paginate, paginate_from_cursor},
         services::api::ApiBuilder,
         validation::validate_pagination,
@@ -154,39 +153,30 @@ mod tests {
         assert_eq!(r.total_pages, 0);
     }
 
-    // ── validate_pagination: max-size enforcement ─────────────────────────────
+    // ── validate_pagination: boundary enforcement ─────────────────────────────
 
     #[test]
-    fn test_max_size_exactly_100_is_valid() {
-        let errs = validate_pagination(1, 100);
-        assert!(errs.is_empty(), "limit=100 should be accepted");
+    fn test_zero_page_or_limit_is_rejected() {
+        let zero_limit = validate_pagination(1, 0);
+        assert!(!zero_limit.is_empty());
+        assert!(zero_limit.iter().any(|e| e.field == "limit"));
+
+        let zero_page = validate_pagination(0, 10);
+        assert!(!zero_page.is_empty());
+        assert!(zero_page.iter().any(|e| e.field == "page"));
+
+        let both_zero = validate_pagination(0, 0);
+        assert_eq!(both_zero.len(), 2);
     }
 
     #[test]
-    fn test_max_size_101_is_rejected() {
+    fn test_max_size_boundary() {
+        let errs = validate_pagination(1, 100);
+        assert!(errs.is_empty(), "limit=100 should be accepted");
+
         let errs = validate_pagination(1, 101);
         assert!(!errs.is_empty(), "limit=101 should be rejected");
         assert!(errs.iter().any(|e| e.field == "limit"));
-    }
-
-    #[test]
-    fn test_zero_limit_is_rejected() {
-        let errs = validate_pagination(1, 0);
-        assert!(!errs.is_empty());
-        assert!(errs.iter().any(|e| e.field == "limit"));
-    }
-
-    #[test]
-    fn test_zero_page_is_rejected() {
-        let errs = validate_pagination(0, 10);
-        assert!(!errs.is_empty());
-        assert!(errs.iter().any(|e| e.field == "page"));
-    }
-
-    #[test]
-    fn test_both_invalid_returns_two_errors() {
-        let errs = validate_pagination(0, 0);
-        assert_eq!(errs.len(), 2, "both page and limit invalid should produce 2 errors");
     }
 
     #[test]
