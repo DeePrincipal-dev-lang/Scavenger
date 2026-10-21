@@ -19,6 +19,8 @@
  * | internal                     | 500  | Unexpected server error            |
  */
 
+import type { ErrorEnvelope } from '@scavngr/types'
+
 // ── Error code registry ───────────────────────────────────────────────────────
 
 /** Canonical dot-notation wire codes shared with the backend. */
@@ -60,7 +62,7 @@ export class AppError extends Error {
     Object.setPrototypeOf(this, new.target.prototype);
   }
 
-  toJSON() {
+  toJSON(): ErrorEnvelope {
     return {
       code: this.code,
       message: this.message,
