@@ -10,6 +10,9 @@ repository = "https://github.com/drips-network/scavenger"
 
 
 [workspace.dependencies]
+# Pinned to a single version so every workspace member resolves the same
+# soroban-sdk (and its transitive deps) — avoids duplicate crate versions in
+# the lockfile. See issue #1563.
 soroban-sdk = "=21.7.7"
 
 # ---------------------------------------------------------------------------

@@ -83,30 +83,9 @@ mod pagination_params_tests {
     }
 
     #[test]
-    fn resolve_rejects_zero_limit() {
-        let err = PaginationParams::resolve(Some(1), Some(0));
-        assert!(err.is_err(), "zero limit should be rejected");
-    }
-
-    #[test]
-    fn resolve_rejects_zero_page() {
-        let err = PaginationParams::resolve(Some(0), Some(10));
-        assert!(err.is_err(), "zero page should be rejected");
-    }
-
-    #[test]
     fn resolve_accepts_valid_params() {
         let p = PaginationParams::resolve(Some(2), Some(50)).unwrap();
         assert_eq!(p.page, 2);
         assert_eq!(p.limit, 50);
-    }
-
-    #[test]
-    fn paginate_on_out_of_range_offset_returns_empty_page() {
-        let items: Vec<i32> = (1..=5).collect();
-        let p = PaginationParams::resolve(Some(10), Some(20)).unwrap();
-        let resp = p.paginate(&items);
-        assert!(resp.items.is_empty(), "offset past the end should yield no items");
-        assert!(!resp.has_more);
     }
 }

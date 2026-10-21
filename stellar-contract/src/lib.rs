@@ -35,9 +35,6 @@ pub mod participant;
 pub mod waste;
 /// Incentive creation, scheduling, and reward-claim helpers.
 pub mod incentive;
-/// On-chain aggregation helpers for stats and metrics (debug-only).
-#[cfg(feature = "debug")]
-pub mod contract_analytics;
 
 // ── Issue #934: Participant storage consolidation ───────────────────────────
 /// Centralized participant storage helpers, eliminating duplicates and providing
@@ -81,7 +78,9 @@ pub mod type_utils;
 /// #816 — Hash-based commitment scheme for privacy-preserving (ZKP-style) operations.
 pub mod zkp;
 pub mod zkp_verifier;
-/// #817 — Versioned cryptographic key storage and rotation.
+/// #817 — Versioned cryptographic key storage and rotation (issue #1515).
+/// Split into submodules: auth (centralized authorization), types (enums/structs),
+/// schedule (read-only operations), lifecycle (mutating operations).
 pub mod key_rotation;
 
 // ── Issue #925: domain-split modules ─────────────────────────────────────────
@@ -125,7 +124,6 @@ pub use types::{
 pub use types::calculate_carbon_credits;
 pub use verification::{VerificationRecord, VerificationState, VerificationWorkflow};
 pub use upgrade::{UpgradeProposal, UpgradeStatus, ProxyState, UpgradeHistory};
-pub use analytics::{AnalyticsReport, ReportType, CustomQuery, AggregationType, AnalyticsDataPoint, AnalyticsEngine};
 #[cfg(feature = "debug")]
 pub use explorer::{TransactionTracker, TransactionType, TransactionStatus, ExplorerConfig};
 
