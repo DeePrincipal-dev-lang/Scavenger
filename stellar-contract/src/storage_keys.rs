@@ -160,6 +160,17 @@ pub const REQUIRED_APPROVERS: Symbol = Symbol::from_static_str("REQ_APPR");
 /// Transfer approvals (issue #700).
 pub const TRANSFER_APPROVALS: Symbol = Symbol::from_static_str("XFR_APPR");
 
+// ── Issue #1514: Analytics Consolidation Keys ────────────────────────
+
+/// Global metrics snapshot (issue #1514).
+pub const GLOBAL_METRICS_SNAPSHOT: Symbol = Symbol::from_static_str("GMTR_SNAP");
+
+/// Analytics update timestamp (issue #1514).
+pub const ANALYTICS_LAST_UPDATE: Symbol = Symbol::from_static_str("ANAL_UPD");
+
+/// Analytics batch counter (issue #1514).
+pub const ANALYTICS_BATCH_COUNT: Symbol = Symbol::from_static_str("ANAL_BAT");
+
 // ── Persistent Storage Key Constructors ───────────────────────────────
 // These return the actual storage key used in `env.storage().instance().get/set`.
 
@@ -218,6 +229,11 @@ pub fn ai_grade_conf_key(waste_id: u128) -> (String, u128) {
     ("ai_grade_conf", waste_id)
 }
 
+/// Returns the per-participant recycling stats storage key (issue #1514).
+pub fn recycling_stats_key(address: &Address) -> (String, Address) {
+    ("recycling_stats", address.clone())
+}
+
 // ── Collision Tests ───────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -241,6 +257,7 @@ mod tests {
             BATCH_COUNT, BATCH_INDEX, CERTIFICATIONS, REPORT_COUNT,
             REPORTS, TRANSACTION_STATS, PERF_SNAPSHOTS,
             TRANSFER_THRESHOLD, REQUIRED_APPROVERS, TRANSFER_APPROVALS,
+            GLOBAL_METRICS_SNAPSHOT, ANALYTICS_LAST_UPDATE, ANALYTICS_BATCH_COUNT,
         ];
         for key in keys {
             let s = key.to_string();
@@ -274,6 +291,8 @@ mod tests {
             REPORTS.to_string(), TRANSACTION_STATS.to_string(),
             PERF_SNAPSHOTS.to_string(), TRANSFER_THRESHOLD.to_string(),
             REQUIRED_APPROVERS.to_string(), TRANSFER_APPROVALS.to_string(),
+            GLOBAL_METRICS_SNAPSHOT.to_string(), ANALYTICS_LAST_UPDATE.to_string(),
+            ANALYTICS_BATCH_COUNT.to_string(),
         ];
         let mut unique = keys.clone();
         unique.sort();
@@ -318,5 +337,16 @@ mod tests {
         unique.sort();
         unique.dedup();
         assert_eq!(keys.len(), unique.len(), "Persistent key collisions found");
+    }
+
+    /// Verify that recycling_stats_key produces unique keys per address (issue #1514).
+    #[test]
+    fn test_recycling_stats_key_uniqueness() {
+        let env = Env::default();
+        let addr1 = Address::generate(&env);
+        let addr2 = Address::generate(&env);
+
+        // Same constructor, different addresses → different keys
+        assert_ne!(recycling_stats_key(&addr1), recycling_stats_key(&addr2));
     }
 }
