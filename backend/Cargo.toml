@@ -47,6 +47,7 @@ base64 = "=0.22.1"
 urlencoding = "=2.1.3"
 url = "=2.5.8"
 sha2 = "=0.10.9"
+hmac = "0.12"
 
 # Removed as confirmed-unused by #1085 (no `use`/path reference anywhere in
 # src/ — verified by grepping every crate root against the source tree):

@@ -5026,6 +5026,7 @@ dependencies = [
  "futures",
  "handlebars",
  "hex",
+ "hmac",
  "image",
  "lettre",
  "log",
